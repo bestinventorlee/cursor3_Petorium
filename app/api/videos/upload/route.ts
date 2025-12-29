@@ -127,10 +127,31 @@ export async function POST(request: NextRequest) {
         timestamp,
         fileName,
         metadata
-      ).catch((error) => {
-        console.error(`비동기 비디오 처리 실패 (videoId: ${video.id}):`, error);
-        // 오류 발생 시 비디오 삭제 또는 상태 업데이트
-        prisma.video.delete({ where: { id: video.id } }).catch(console.error);
+      ).catch(async (error) => {
+        const videoId = video.id;
+        console.error(`비동기 비디오 처리 실패 (videoId: ${videoId}):`, error);
+        console.error(`에러 상세:`, error.stack || error.message);
+        // 오류 발생 시 비디오를 삭제하지 않고 오류 상태로 표시
+        // 관리자가 확인할 수 있도록 유지
+        try {
+          const existingVideo = await prisma.video.findUnique({
+            where: { id: videoId },
+            select: { description: true },
+          });
+          await prisma.video.update({
+            where: { id: videoId },
+            data: {
+              videoUrl: `error://${Date.now()}`, // 오류 상태 표시
+              description: existingVideo?.description
+                ? `${existingVideo.description}\n\n[처리 실패: ${error.message}]`
+                : `[처리 실패: ${error.message}]`,
+            },
+          });
+        } catch (updateError) {
+          console.error(`비디오 상태 업데이트 실패 (videoId: ${videoId}):`, updateError);
+          // 업데이트 실패 시에만 삭제
+          await prisma.video.delete({ where: { id: videoId } }).catch(console.error);
+        }
       });
 
       return NextResponse.json(

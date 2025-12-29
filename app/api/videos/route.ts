@@ -14,12 +14,23 @@ export async function GET(request: NextRequest) {
       where: {
         isRemoved: false,
         isFlagged: false,
-        // 처리 중인 비디오 제외 (videoUrl이 processing://로 시작하지 않는 경우)
-        videoUrl: {
-          not: {
-            startsWith: "processing://",
+        // 처리 중이거나 오류 상태인 비디오 제외
+        AND: [
+          {
+            videoUrl: {
+              not: {
+                startsWith: "processing://",
+              },
+            },
           },
-        },
+          {
+            videoUrl: {
+              not: {
+                startsWith: "error://",
+              },
+            },
+          },
+        ],
       },
       skip,
       take: limit,
@@ -43,7 +54,28 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const total = await prisma.video.count();
+    const total = await prisma.video.count({
+      where: {
+        isRemoved: false,
+        isFlagged: false,
+        AND: [
+          {
+            videoUrl: {
+              not: {
+                startsWith: "processing://",
+              },
+            },
+          },
+          {
+            videoUrl: {
+              not: {
+                startsWith: "error://",
+              },
+            },
+          },
+        ],
+      },
+    });
 
     return NextResponse.json({
       videos,
