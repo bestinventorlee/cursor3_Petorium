@@ -264,6 +264,13 @@ export async function processVideo(
     
     console.log(`Video processing: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight}, hasAudio: ${hasAudio}`);
     
+    // FFmpeg scale 필터: 비율 유지하며 리사이즈하고, 결과를 짝수로 맞춤
+    // -2는 비율을 유지하면서 짝수로 자동 조정 (더 안전한 방법)
+    // 가로 비디오인 경우 높이를 -2로, 세로 비디오인 경우 너비를 -2로 설정
+    const scaleFilter = originalAspectRatio >= 1
+      ? `scale=${targetWidth}:-2:force_original_aspect_ratio=decrease` // 가로 비디오: 너비 고정, 높이 자동(짝수)
+      : `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`; // 세로 비디오: 높이 고정, 너비 자동(짝수)
+    
     const command = ffmpeg(inputPath)
       .videoCodec("libx264")
       .outputOptions([
@@ -273,7 +280,7 @@ export async function processVideo(
         "-pix_fmt yuv420p", // Compatibility
         "-maxrate 2M", // Max bitrate
         "-bufsize 4M", // Buffer size
-        `-vf scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`, // 비율 유지하며 리사이즈
+        `-vf ${scaleFilter}`, // 비율 유지하며 리사이즈하고 짝수로 맞춤
       ])
       .videoBitrate("1500k"); // Video bitrate
     
