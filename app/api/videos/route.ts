@@ -14,11 +14,12 @@ export async function GET(request: NextRequest) {
       where: {
         isRemoved: false,
         isFlagged: false,
-        // 처리 중인 비디오 제외 (videoUrl이 processing://로 시작하지 않고 null이 아닌 경우)
-        AND: [
-          { videoUrl: { not: { startsWith: "processing://" } } },
-          { NOT: { videoUrl: null } },
-        ],
+        // 처리 중인 비디오 제외 (videoUrl이 processing://로 시작하지 않는 경우)
+        videoUrl: {
+          not: {
+            startsWith: "processing://",
+          },
+        },
       },
       skip,
       take: limit,

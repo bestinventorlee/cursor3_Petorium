@@ -36,10 +36,11 @@ export async function calculateVideoScores(
         isRemoved: false,
         isFlagged: false,
         // 처리 중인 비디오 제외
-        AND: [
-          { videoUrl: { not: { startsWith: "processing://" } } },
-          { NOT: { videoUrl: null } },
-        ],
+        videoUrl: {
+          not: {
+            startsWith: "processing://",
+          },
+        },
       },
       include: {
         _count: {
@@ -63,10 +64,11 @@ export async function calculateVideoScores(
         isRemoved: false,
         isFlagged: false,
         // 처리 중인 비디오 제외
-        AND: [
-          { videoUrl: { not: { startsWith: "processing://" } } },
-          { NOT: { videoUrl: null } },
-        ],
+        videoUrl: {
+          not: {
+            startsWith: "processing://",
+          },
+        },
       },
       include: {
         _count: {
@@ -127,10 +129,11 @@ export async function calculateVideoScores(
           isRemoved: false,
           isFlagged: false,
           // 처리 중인 비디오 제외
-          AND: [
-            { videoUrl: { not: { startsWith: "processing://" } } },
-            { NOT: { videoUrl: null } },
-          ],
+          videoUrl: {
+            not: {
+              startsWith: "processing://",
+            },
+          },
         },
         include: {
           _count: {
@@ -200,10 +203,11 @@ export async function calculateVideoScores(
             isRemoved: false,
             isFlagged: false,
             // 처리 중인 비디오 제외
-            AND: [
-              { videoUrl: { not: { startsWith: "processing://" } } },
-              { NOT: { videoUrl: null } },
-            ],
+            videoUrl: {
+              not: {
+                startsWith: "processing://",
+              },
+            },
           },
           include: {
             _count: {
@@ -333,10 +337,11 @@ export async function getRecommendedVideos(
       isRemoved: false,
       isFlagged: false,
       // 처리 중인 비디오 제외
-      AND: [
-        { videoUrl: { not: { startsWith: "processing://" } } },
-        { NOT: { videoUrl: null } },
-      ],
+      videoUrl: {
+        not: {
+          startsWith: "processing://",
+        },
+      },
     },
     select: { id: true },
     orderBy: { createdAt: "desc" },
@@ -371,10 +376,11 @@ export async function getRecommendedVideos(
       isRemoved: false,
       isFlagged: false,
       // 처리 중인 비디오 제외
-      AND: [
-        { videoUrl: { not: { startsWith: "processing://" } } },
-        { NOT: { videoUrl: null } },
-      ],
+      videoUrl: {
+        not: {
+          startsWith: "processing://",
+        },
+      },
     },
     include: {
       user: {
