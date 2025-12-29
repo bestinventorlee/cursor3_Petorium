@@ -1,0 +1,11 @@
+2025-11-18 04:27:42 KST ·Î±×:  µ¥ÀÌÅÍº£ÀÌ½º ½Ã½ºÅÛ ¸¶Áö¸· °¡µ¿ ÁßÁö ½Ã°¢: 2025-11-18 04:26:59 KST
+2025-11-18 04:32:42 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 04:32:42 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 0°³(0.0%) ¹öÆÛ ¾¸, 3°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.003 s, µ¿±âÈ­½Ã°£: 0.007 s, ÀüÃ¼½Ã°£: 0.032 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 2, ÃÖÀå½Ã°£: 0.004 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 0 kB, ¿¹»óÇÑÀÛ¾÷·®: 0 kB; lsn=0/1DA9320, redo lsn=0/1DA92C8
+2025-11-18 17:28:30 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 17:28:32 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 15°³(0.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 1.652 s, µ¿±âÈ­½Ã°£: 0.052 s, ÀüÃ¼½Ã°£: 1.787 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 16, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 12 kB, ¿¹»óÇÑÀÛ¾÷·®: 12 kB; lsn=0/1DAC400, redo lsn=0/1DAC3A8
+2025-11-18 17:33:30 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 17:33:30 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 2°³(0.0%) ¹öÆÛ ¾¸, 0°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.216 s, µ¿±âÈ­½Ã°£: 0.008 s, ÀüÃ¼½Ã°£: 0.249 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 2, ÃÖÀå½Ã°£: 0.004 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 5 kB, ¿¹»óÇÑÀÛ¾÷·®: 11 kB; lsn=0/1DADBD0, redo lsn=0/1DADB78
+2025-11-18 17:51:14 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-19 05:03:03 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	

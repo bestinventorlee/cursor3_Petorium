@@ -1,0 +1,43 @@
+2025-11-18 01:17:22 KST ·Î±×:  µ¥ÀÌÅÍº£ÀÌ½º ½Ã½ºÅÛ ¸¶Áö¸· °¡µ¿ ÁßÁö ½Ã°¢: 2025-11-18 01:17:14 KST
+2025-11-18 01:22:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 01:22:27 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 43°³(0.3%) ¹öÆÛ ¾¸, 3°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 4.681 s, µ¿±âÈ­½Ã°£: 0.030 s, ÀüÃ¼½Ã°£: 4.734 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 11, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 333 kB, ¿¹»óÇÑÀÛ¾÷·®: 333 kB; lsn=0/1844BD0, redo lsn=0/1844B78
+2025-11-18 01:27:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 01:29:11 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 994°³(6.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 1°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 108.044 s, µ¿±âÈ­½Ã°£: 0.879 s, ÀüÃ¼½Ã°£: 109.039 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 302, ÃÖÀå½Ã°£: 0.019 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 4672 kB, ¿¹»óÇÑÀÛ¾÷·®: 4672 kB; lsn=0/1CD4F20, redo lsn=0/1CD4E90
+2025-11-18 01:30:23 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 01:30:24 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 01:32:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 01:32:34 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 111°³(0.7%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 12.115 s, µ¿±âÈ­½Ã°£: 0.332 s, ÀüÃ¼½Ã°£: 12.468 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 121, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 808 kB, ¿¹»óÇÑÀÛ¾÷·®: 4286 kB; lsn=0/1D9F2D8, redo lsn=0/1D9F248
+2025-11-18 01:47:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 01:47:24 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 15°³(0.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 1.639 s, µ¿±âÈ­½Ã°£: 0.030 s, ÀüÃ¼½Ã°£: 1.699 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 9, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 1 kB, ¿¹»óÇÑÀÛ¾÷·®: 3857 kB; lsn=0/1D9F9E0, redo lsn=0/1D9F988
+2025-11-18 01:53:18 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 01:55:28 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 02:02:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:02:24 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 16°³(0.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 1.746 s, µ¿±âÈ­½Ã°£: 0.029 s, ÀüÃ¼½Ã°£: 1.802 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 10, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 2 kB, ¿¹»óÇÑÀÛ¾÷·®: 3472 kB; lsn=0/1DA0220, redo lsn=0/1DA01C8
+2025-11-18 02:07:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:07:23 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 13°³(0.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 1.423 s, µ¿±âÈ­½Ã°£: 0.028 s, ÀüÃ¼½Ã°£: 1.491 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 9, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 2 kB, ¿¹»óÇÑÀÛ¾÷·®: 3125 kB; lsn=0/1DA0A40, redo lsn=0/1DA09E8
+2025-11-18 02:12:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:12:23 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 9°³(0.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.988 s, µ¿±âÈ­½Ã°£: 0.030 s, ÀüÃ¼½Ã°£: 1.042 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 10, ÃÖÀå½Ã°£: 0.004 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 4 kB, ¿¹»óÇÑÀÛ¾÷·®: 2813 kB; lsn=0/1DA1E48, redo lsn=0/1DA1DB8
+2025-11-18 02:14:32 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 02:17:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:17:23 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 8°³(0.0%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.879 s, µ¿±âÈ­½Ã°£: 0.026 s, ÀüÃ¼½Ã°£: 0.934 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 9, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 3 kB, ¿¹»óÇÑÀÛ¾÷·®: 2532 kB; lsn=0/1DA2AD8, redo lsn=0/1DA2A80
+2025-11-18 02:32:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:32:24 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 15°³(0.1%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 1.636 s, µ¿±âÈ­½Ã°£: 0.045 s, ÀüÃ¼½Ã°£: 1.711 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 16, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.003 s; ½ÇÁ¦ÀÛ¾÷·®: 7 kB, ¿¹»óÇÑÀÛ¾÷·®: 2279 kB; lsn=0/1DA4718, redo lsn=0/1DA46C0
+2025-11-18 02:37:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:37:23 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 8°³(0.0%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.880 s, µ¿±âÈ­½Ã°£: 0.028 s, ÀüÃ¼½Ã°£: 0.934 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 9, ÃÖÀå½Ã°£: 0.005 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 9 kB, ¿¹»óÇÑÀÛ¾÷·®: 2052 kB; lsn=0/1DA6CB8, redo lsn=0/1DA6C60
+2025-11-18 02:40:07 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 02:40:07 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 02:43:04 KST ë¡œê·¸:  í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë°ì´í„°ë¥¼ ë°›ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: An existing connection was forcibly closed by the remote host.
+	
+2025-11-18 02:47:22 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: time
+2025-11-18 02:47:23 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 8°³(0.0%) ¹öÆÛ ¾¸, 1°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.895 s, µ¿±âÈ­½Ã°£: 0.031 s, ÀüÃ¼½Ã°£: 0.957 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 9, ÃÖÀå½Ã°£: 0.006 s, Æò±Õ½Ã°£: 0.004 s; ½ÇÁ¦ÀÛ¾÷·®: 9 kB, ¿¹»óÇÑÀÛ¾÷·®: 1848 kB; lsn=0/1DA90B8, redo lsn=0/1DA9060
+2025-11-18 04:24:56 KST ·Î±×:  ¼­ºñ½º¸¦ ¸ØÃß°í ÀÖ½À´Ï´Ù
+2025-11-18 04:24:56 KST ¿À·ù:  »ç¿ëÀÚ ¿äÃ»¿¡ ÀÇÇØ ÀÛ¾÷À» Ãë¼ÒÇÕ´Ï´Ù.
+2025-11-18 04:24:56 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ½ÃÀÛ: shutdown immediate
+2025-11-18 04:24:56 KST ·Î±×:  Ã¼Å©Æ÷ÀÎÆ® ÀÛ¾÷¿Ï·á: 0°³(0.0%) ¹öÆÛ ¾¸, 0°³ SLRU ¹öÆÛ ¾¸; 0°³ WAL ÆÄÀÏ Ãß°¡µÊ, 0°³ Áö¿üÀ½, 0°³ ÀçÈ°¿ë; ¾²±â½Ã°£: 0.001 s, µ¿±âÈ­½Ã°£: 0.001 s, ÀüÃ¼½Ã°£: 0.032 s; µ¿±âÈ­ ÆÄÀÏ °³¼ö: 0, ÃÖÀå½Ã°£: 0.000 s, Æò±Õ½Ã°£: 0.000 s; ½ÇÁ¦ÀÛ¾÷·®: 0 kB, ¿¹»óÇÑÀÛ¾÷·®: 1663 kB; lsn=0/1DA9168, redo lsn=0/1DA9168

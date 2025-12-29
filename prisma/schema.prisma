@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  name          String?
+  password      String?
+  avatar        String?   // Renamed from image for clarity
+  bio           String?   @db.Text
+  role          String    @default("USER") // USER, ADMIN, MODERATOR
+  isBanned      Boolean   @default(false)
+  bannedAt      DateTime?
+  bannedReason  String?   @db.Text
+  followers     Int       @default(0) // Cached count, updated via triggers or application logic
+  following     Int       @default(0) // Cached count, updated via triggers or application logic
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  videos        Video[]
+  comments      Comment[]
+  likes         Like[]
+  savedVideos   SavedVideo[]
+  followersList Follow[]  @relation("UserFollowers")
+  followingList Follow[]   @relation("UserFollowing")
+  accounts      Account[]
+  reports       Report[]  @relation("ReportReporter") // Reports filed by this user
+  reportedBy    Report[]  @relation("ReportTarget") // Reports filed against this user
+
+  @@index([username])
+  @@index([email])
+  @@index([role])
+  @@index([isBanned])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Video {
+  id          String   @id @default(cuid())
+  userId      String
+  videoUrl    String   @db.Text
+  thumbnailUrl String? @db.Text
+  title       String
+  description String?  @db.Text
+  views       Int      @default(0)
+  duration    Int?     // Duration in seconds
+  isRemoved   Boolean  @default(false)
+  removedAt   DateTime?
+  removedReason String? @db.Text
+  isFlagged   Boolean  @default(false)
+  flaggedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+  hashtags    VideoHashtag[]
+  reports     Report[]
+  savedBy     SavedVideo[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([views])
+  @@index([createdAt, views]) // 트렌딩 쿼리 최적화
+  @@index([isRemoved])
+  @@index([isFlagged])
+  @@map("videos")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  parentId  String?  // 답글을 위한 부모 댓글 ID
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  @@index([videoId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([videoId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("likes")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@index([createdAt])
+  @@map("follows")
+}
+
+model Hashtag {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  videoCount Int      @default(0) // Cached count, updated via triggers or application logic
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  videos     VideoHashtag[]
+
+  @@index([name])
+  @@index([videoCount])
+  @@map("hashtags")
+}
+
+model VideoHashtag {
+  id        String   @id @default(cuid())
+  videoId   String
+  hashtagId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  hashtag   Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, hashtagId])
+  @@index([videoId])
+  @@index([hashtagId])
+  @@index([createdAt])
+  @@map("video_hashtags")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  type        String   // VIDEO, USER, COMMENT
+  targetId    String   // ID of the reported item
+  reporterId  String   // User who filed the report
+  reportedUserId String? // User being reported (if type is USER)
+  reason      String   @db.Text
+  status      String   @default("PENDING") // PENDING, REVIEWED, RESOLVED, DISMISSED
+  reviewedBy  String?  // Admin who reviewed
+  reviewedAt  DateTime?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  reporter    User     @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User?   @relation("ReportTarget", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  video       Video?   @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([reporterId])
+  @@index([reportedUserId])
+  @@map("reports")
+}
+
+model SavedVideo {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([videoId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("saved_videos")
+}
