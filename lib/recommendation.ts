@@ -35,12 +35,23 @@ export async function calculateVideoScores(
         createdAt: { gte: last7Days },
         isRemoved: false,
         isFlagged: false,
-        // 처리 중인 비디오 제외
-        videoUrl: {
-          not: {
-            startsWith: "processing://",
+        // 처리 중이거나 오류 상태인 비디오 제외
+        AND: [
+          {
+            videoUrl: {
+              not: {
+                startsWith: "processing://",
+              },
+            },
           },
-        },
+          {
+            videoUrl: {
+              not: {
+                startsWith: "error://",
+              },
+            },
+          },
+        ],
       },
       include: {
         _count: {
@@ -63,12 +74,23 @@ export async function calculateVideoScores(
         id: { notIn: excludeVideoIds },
         isRemoved: false,
         isFlagged: false,
-        // 처리 중인 비디오 제외
-        videoUrl: {
-          not: {
-            startsWith: "processing://",
+        // 처리 중이거나 오류 상태인 비디오 제외
+        AND: [
+          {
+            videoUrl: {
+              not: {
+                startsWith: "processing://",
+              },
+            },
           },
-        },
+          {
+            videoUrl: {
+              not: {
+                startsWith: "error://",
+              },
+            },
+          },
+        ],
       },
       include: {
         _count: {
@@ -128,12 +150,23 @@ export async function calculateVideoScores(
           id: { notIn: excludeVideoIds },
           isRemoved: false,
           isFlagged: false,
-          // 처리 중인 비디오 제외
-          videoUrl: {
-            not: {
-              startsWith: "processing://",
+          // 처리 중이거나 오류 상태인 비디오 제외
+          AND: [
+            {
+              videoUrl: {
+                not: {
+                  startsWith: "processing://",
+                },
+              },
             },
-          },
+            {
+              videoUrl: {
+                not: {
+                  startsWith: "error://",
+                },
+              },
+            },
+          ],
         },
         include: {
           _count: {
@@ -202,12 +235,23 @@ export async function calculateVideoScores(
             userId: { not: userId }, // 자신의 비디오 제외
             isRemoved: false,
             isFlagged: false,
-            // 처리 중인 비디오 제외
-            videoUrl: {
-              not: {
-                startsWith: "processing://",
+            // 처리 중이거나 오류 상태인 비디오 제외
+            AND: [
+              {
+                videoUrl: {
+                  not: {
+                    startsWith: "processing://",
+                  },
+                },
               },
-            },
+              {
+                videoUrl: {
+                  not: {
+                    startsWith: "error://",
+                  },
+                },
+              },
+            ],
           },
           include: {
             _count: {
@@ -336,12 +380,23 @@ export async function getRecommendedVideos(
       id: { notIn: excludeVideoIds },
       isRemoved: false,
       isFlagged: false,
-      // 처리 중인 비디오 제외
-      videoUrl: {
-        not: {
-          startsWith: "processing://",
+      // 처리 중이거나 오류 상태인 비디오 제외
+      AND: [
+        {
+          videoUrl: {
+            not: {
+              startsWith: "processing://",
+            },
+          },
         },
-      },
+        {
+          videoUrl: {
+            not: {
+              startsWith: "error://",
+            },
+          },
+        },
+      ],
     },
     select: { id: true },
     orderBy: { createdAt: "desc" },
@@ -375,12 +430,23 @@ export async function getRecommendedVideos(
       id: { in: selectedVideoIds },
       isRemoved: false,
       isFlagged: false,
-      // 처리 중인 비디오 제외
-      videoUrl: {
-        not: {
-          startsWith: "processing://",
+      // 처리 중이거나 오류 상태인 비디오 제외
+      AND: [
+        {
+          videoUrl: {
+            not: {
+              startsWith: "processing://",
+            },
+          },
         },
-      },
+        {
+          videoUrl: {
+            not: {
+              startsWith: "error://",
+            },
+          },
+        },
+      ],
     },
     include: {
       user: {
