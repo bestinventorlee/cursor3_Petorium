@@ -16,7 +16,7 @@ interface ModerationResult {
  */
 export async function moderateText(content: string): Promise<ModerationResult> {
   // List of blocked words/phrases (in production, use a proper moderation service)
-  const blockedWords = [
+  const blockedWords: string[] = [
     // Add your blocked words here
   ];
 

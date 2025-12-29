@@ -5,8 +5,12 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Connection pooling configuration
-const prismaOptions = {
-  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+import { Prisma } from '@prisma/client';
+
+const prismaOptions: Prisma.PrismaClientOptions = {
+  log: process.env.NODE_ENV === "development" 
+    ? [{ level: 'query', emit: 'event' }, { level: 'error', emit: 'stdout' }, { level: 'warn', emit: 'stdout' }]
+    : [{ level: 'error', emit: 'stdout' }],
   datasources: {
     db: {
       url: process.env.DATABASE_URL,

@@ -232,7 +232,7 @@ export default function ShareModal({
               <span className="text-xs">Kakao</span>
             </button>
 
-            {navigator.share && (
+            {typeof navigator !== 'undefined' && 'share' in navigator && (
               <button
                 onClick={() => handleShare("native")}
                 className="flex flex-col items-center space-y-2 p-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"

@@ -29,7 +29,7 @@ export default function MobileVideoPlayer({
   className = "",
 }: MobileVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [showControls, setShowControls] = useState(false);
@@ -39,7 +39,7 @@ export default function MobileVideoPlayer({
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { ref, inView } = useInView({
+  const { ref: inViewRef, inView } = useInView({
     threshold: 0.5,
     triggerOnce: false,
   });
@@ -163,14 +163,21 @@ export default function MobileVideoPlayer({
   // 세로 비디오는 비율을 유지하면서 전체 화면을 채우도록
   const isVerticalVideo = videoAspectRatio !== null && videoAspectRatio < 1;
 
+  // ref callback을 사용하여 두 ref를 모두 설정
+  const setRefs = useCallback((node: HTMLDivElement | null) => {
+    // useInView의 ref 설정
+    if (typeof inViewRef === 'function') {
+      inViewRef(node);
+    } else if (inViewRef) {
+      (inViewRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+    // containerRef 설정
+    containerRef.current = node;
+  }, [inViewRef]);
+
   return (
     <div
-      ref={(node) => {
-        ref(node);
-        if (node) {
-          containerRef.current = node;
-        }
-      }}
+      ref={setRefs}
       className={`relative w-full h-full bg-black overflow-hidden flex items-center justify-center ${className}`}
       style={{ touchAction: "none" }}
     >

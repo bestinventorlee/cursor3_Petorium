@@ -26,12 +26,16 @@ export function initializeSocket(server: HTTPServer) {
 
     // Handle comments
     socket.on("new-comment", (data: { videoId: string; comment: any }) => {
-      io.to(`video:${data.videoId}`).emit("comment-added", data.comment);
+      if (io) {
+        io.to(`video:${data.videoId}`).emit("comment-added", data.comment);
+      }
     });
 
     // Handle comment deletion
     socket.on("delete-comment", (data: { videoId: string; commentId: string }) => {
-      io.to(`video:${data.videoId}`).emit("comment-deleted", data);
+      if (io) {
+        io.to(`video:${data.videoId}`).emit("comment-deleted", data);
+      }
     });
 
     // Handle likes

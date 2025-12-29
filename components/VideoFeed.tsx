@@ -284,8 +284,8 @@ function VideoFeedItem({
               userId={video.user.id}
               username={video.user.username}
               userAvatar={video.user.avatar}
-              likes={video.metrics?.likes || video._count?.likes || 0}
-              comments={video.metrics?.comments || video._count?.comments || 0}
+              likes={video._count?.likes || 0}
+              comments={video._count?.comments || 0}
               isLiked={isLiked}
               isFollowing={isFollowing}
               onLike={(liked) => setIsLiked(liked)}

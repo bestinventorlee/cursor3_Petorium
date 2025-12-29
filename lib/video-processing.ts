@@ -73,13 +73,13 @@ export interface VideoMetadata {
 
 export async function getVideoMetadata(videoPath: string): Promise<VideoMetadata> {
   return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(videoPath, (err, metadata) => {
+    ffmpeg.ffprobe(videoPath, (err: Error | null, metadata: any) => {
       if (err) {
         reject(err);
         return;
       }
 
-      const videoStream = metadata.streams.find((s) => s.codec_type === "video");
+      const videoStream = metadata.streams.find((s: any) => s.codec_type === "video");
       if (!videoStream) {
         reject(new Error("비디오 스트림을 찾을 수 없습니다"));
         return;
@@ -211,7 +211,7 @@ export async function generateThumbnails(
           reject(new Error(`썸네일 파일을 찾을 수 없습니다: ${err.message}`));
         }
       })
-      .on("error", (err) => {
+      .on("error", (err: Error) => {
         console.error("FFmpeg thumbnail generation error:", err);
         reject(err);
       });
@@ -278,7 +278,7 @@ export async function processVideo(
         }
       })
       .on("end", () => resolve(outputPath))
-      .on("error", (err) => {
+      .on("error", (err: Error) => {
         console.error("FFmpeg error:", err);
         reject(err);
       })

@@ -215,7 +215,7 @@ npm install --production
 nano .env
 ```
 
-`.env` 파일 내용:
+**도메인이 있는 경우** `.env` 파일 내용:
 
 ```env
 # 데이터베이스
@@ -255,6 +255,54 @@ NEXT_PUBLIC_SOCKET_URL="https://your-domain.com"
 # Node 환경
 NODE_ENV="production"
 ```
+
+**IP 주소로 배포하는 경우** (도메인 없음) `.env` 파일 내용:
+
+```env
+# 데이터베이스
+DATABASE_URL="postgresql://petorium_user:your_secure_password@localhost:5432/petorium?schema=public"
+
+# NextAuth.js - IP 주소 사용 (HTTP)
+NEXTAUTH_URL="http://43.200.91.84"
+NEXTAUTH_SECRET="your-nextauth-secret-key-here"
+
+# OAuth (선택사항)
+# 주의: OAuth는 IP 주소로는 제대로 작동하지 않을 수 있습니다.
+# OAuth 제공업체에서 리다이렉트 URI를 IP 주소로 등록해야 합니다.
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+
+# AWS S3
+AWS_ACCESS_KEY_ID="your-aws-access-key"
+AWS_SECRET_ACCESS_KEY="your-aws-secret-key"
+AWS_REGION="us-east-1"
+AWS_S3_BUCKET_NAME="your-bucket-name"
+
+# CDN - IP 주소로는 CDN 사용 불가 (비활성화)
+USE_CDN="false"
+CDN_BASE_URL=""
+
+# Redis
+REDIS_URL="redis://localhost:6379"
+# 또는 비밀번호가 있는 경우:
+# REDIS_URL="redis://:your_redis_password@localhost:6379"
+
+# CSRF 보호
+CSRF_SECRET="your-csrf-secret-key-here"
+
+# Socket.io - IP 주소 사용 (HTTP)
+NEXT_PUBLIC_SOCKET_URL="http://43.200.91.84"
+
+# Node 환경
+NODE_ENV="production"
+```
+
+**중요 사항 (IP 주소 사용 시)**:
+- SSL 인증서를 IP 주소로 발급할 수 없으므로 HTTP만 사용합니다
+- OAuth 로그인은 IP 주소로 제한될 수 있습니다 (OAuth 제공업체에서 IP 주소를 리다이렉트 URI로 허용해야 함)
+- CDN은 도메인이 필요하므로 비활성화합니다
 
 **중요**: 비밀키 생성 방법:
 
@@ -323,6 +371,8 @@ sudo nano /etc/nginx/sites-available/petorium
 
 설정 내용:
 
+**도메인이 있는 경우** 설정 내용:
+
 ```nginx
 server {
     listen 80;
@@ -337,6 +387,45 @@ server {
     # return 301 https://$server_name$request_uri;
 
     # 임시: HTTP로 서비스 (SSL 설정 전)
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # 타임아웃 설정
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # 파일 업로드 크기 제한
+    client_max_body_size 100M;
+    
+    # 정적 파일 캐싱
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://localhost:3000;
+        proxy_cache_valid 200 30d;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+**IP 주소로 배포하는 경우** (도메인 없음) 설정 내용:
+
+```nginx
+server {
+    listen 80;
+    server_name 43.200.91.84;
+    # 또는 모든 호스트 허용:
+    # listen 80 default_server;
+
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
