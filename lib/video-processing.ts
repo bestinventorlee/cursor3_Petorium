@@ -262,6 +262,8 @@ export async function processVideo(
     // 비디오 메타데이터에서 오디오 스트림 존재 여부 확인
     const hasAudio = metadata.hasAudio === true;
     
+    console.log(`Video processing: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight}, hasAudio: ${hasAudio}`);
+    
     const command = ffmpeg(inputPath)
       .videoCodec("libx264")
       .outputOptions([
@@ -285,20 +287,36 @@ export async function processVideo(
       command.outputOptions(["-an"]); // 오디오 없음
     }
     
+    // stderr 출력 캡처 (FFmpeg의 상세 오류 메시지)
+    let stderrOutput = "";
+    
     command
       .on("start", (commandLine) => {
         console.log("FFmpeg command:", commandLine);
-        console.log(`Processing video: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight}`);
+        console.log(`Processing video: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight}, hasAudio: ${hasAudio}`);
+      })
+      .on("stderr", (stderrLine: string) => {
+        stderrOutput += stderrLine + "\n";
+        // 경고는 로그만 출력
+        if (stderrLine.includes("warning") || stderrLine.includes("Warning")) {
+          console.warn("FFmpeg warning:", stderrLine);
+        } else if (stderrLine.includes("error") || stderrLine.includes("Error")) {
+          console.error("FFmpeg stderr error:", stderrLine);
+        }
       })
       .on("progress", (progress) => {
         if (progress.percent) {
           console.log(`Processing: ${Math.round(progress.percent)}%`);
         }
       })
-      .on("end", () => resolve(outputPath))
+      .on("end", () => {
+        console.log("FFmpeg processing completed successfully");
+        resolve(outputPath);
+      })
       .on("error", (err: Error) => {
         console.error("FFmpeg error:", err);
-        reject(err);
+        console.error("FFmpeg stderr output:", stderrOutput);
+        reject(new Error(`FFmpeg 변환 실패: ${err.message}\nStderr: ${stderrOutput}`));
       })
       .save(outputPath);
   });
