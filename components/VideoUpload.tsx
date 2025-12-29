@@ -3,6 +3,22 @@
 import { useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
+// CSRF 토큰 가져오기
+async function getCSRFToken(): Promise<string | null> {
+  try {
+    const response = await fetch("/api/csrf-token", {
+      cache: "no-store",
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.token;
+    }
+  } catch (error) {
+    console.error("Error fetching CSRF token:", error);
+  }
+  return null;
+}
+
 interface VideoUploadProps {
   onUploadComplete?: (videoId: string) => void;
   onUploadError?: (error: string) => void;
@@ -146,6 +162,9 @@ export default function VideoUpload({
   const uploadWithRetry = useCallback(
     async (formData: FormData, retries = 0): Promise<Response> => {
       try {
+        // CSRF 토큰 가져오기
+        const csrfToken = await getCSRFToken();
+        
         // fetch API를 사용하여 업로드 진행률 추적
         const xhr = new XMLHttpRequest();
 
@@ -205,6 +224,12 @@ export default function VideoUpload({
           });
 
           xhr.open("POST", "/api/videos/upload");
+          
+          // CSRF 토큰을 헤더에 추가
+          if (csrfToken) {
+            xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+          }
+          
           xhr.send(formData);
         });
       } catch (error) {
