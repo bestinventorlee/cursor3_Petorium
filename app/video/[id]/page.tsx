@@ -8,6 +8,7 @@ import VideoInteractions from "@/components/VideoInteractions";
 import CommentSection from "@/components/CommentSection";
 import Link from "next/link";
 import Image from "next/image";
+import { api } from "@/lib/api-client";
 
 interface Video {
   id: string;
@@ -101,9 +102,8 @@ export default function VideoPage() {
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/videos/${video.id}`, {
-        method: "DELETE",
-      });
+      // api-client를 사용하여 자동으로 CSRF 토큰 포함
+      const response = await api.delete(`/api/videos/${video.id}`);
 
       if (!response.ok) {
         const data = await response.json();
@@ -126,11 +126,11 @@ export default function VideoPage() {
     if (!video) return;
 
     try {
-      const response = await fetch(`/api/videos/${video.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }),
-      });
+      // api-client를 사용하여 자동으로 CSRF 토큰 포함
+      const response = await api.patch(
+        `/api/videos/${video.id}`,
+        { title, description }
+      );
 
       if (!response.ok) {
         const data = await response.json();

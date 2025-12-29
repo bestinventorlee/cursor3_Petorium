@@ -66,9 +66,19 @@ export default function AdminVideosPage() {
     if (!confirm("이 비디오를 제거하시겠습니까?")) return;
 
     try {
+      // CSRF 토큰 가져오기
+      const csrfResponse = await fetch("/api/csrf-token", {
+        cache: "no-store",
+      });
+      const csrfData = await csrfResponse.json();
+      const csrfToken = csrfData.token;
+
       const response = await fetch("/api/admin/videos", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
         body: JSON.stringify({ videoId, reason }),
       });
 
@@ -82,8 +92,18 @@ export default function AdminVideosPage() {
 
   const handleRestore = async (videoId: string) => {
     try {
+      // CSRF 토큰 가져오기
+      const csrfResponse = await fetch("/api/csrf-token", {
+        cache: "no-store",
+      });
+      const csrfData = await csrfResponse.json();
+      const csrfToken = csrfData.token;
+
       const response = await fetch(`/api/admin/videos/${videoId}/restore`, {
         method: "POST",
+        headers: {
+          "X-CSRF-Token": csrfToken,
+        },
       });
 
       if (response.ok) {
