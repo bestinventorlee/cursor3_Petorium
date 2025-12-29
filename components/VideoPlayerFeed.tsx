@@ -21,7 +21,7 @@ export default function VideoPlayerFeed({
 }: VideoPlayerFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [lastTap, setLastTap] = useState(0);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);

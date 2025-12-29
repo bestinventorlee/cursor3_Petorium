@@ -13,7 +13,7 @@ git pull origin main || git pull origin master
 
 # 2. 의존성 설치
 echo "📦 의존성을 설치하는 중..."
-npm install --production
+npm install
 
 # 3. Prisma 클라이언트 생성
 echo "🗄️ Prisma 클라이언트를 생성하는 중..."

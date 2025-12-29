@@ -123,7 +123,7 @@ cd petorium
 ### 의존성 설치
 
 ```bash
-npm install --production
+npm install
 ```
 
 ### 환경 변수 설정
@@ -515,7 +515,7 @@ cd ~/petorium
 git pull origin main
 
 # 의존성 업데이트
-npm install --production
+npm install
 
 # Prisma 마이그레이션 (필요시)
 npm run db:migrate

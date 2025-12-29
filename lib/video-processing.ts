@@ -264,6 +264,7 @@ export async function processVideo(
         "-pix_fmt yuv420p", // Compatibility
         "-maxrate 2M", // Max bitrate
         "-bufsize 4M", // Buffer size
+        "-map 0", // 모든 스트림 포함 (비디오 + 오디오)
         `-vf scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`, // 비율 유지하며 리사이즈
       ])
       .videoBitrate("1500k") // Video bitrate

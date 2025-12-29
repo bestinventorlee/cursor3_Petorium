@@ -205,7 +205,8 @@ cd petorium
 ### 의존성 설치
 
 ```bash
-npm install --production
+# 빌드에 필요한 devDependencies 포함하여 설치
+npm install
 ```
 
 ### 환경 변수 설정

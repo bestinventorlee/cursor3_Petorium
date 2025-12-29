@@ -71,8 +71,8 @@ cd petorium
 nano .env
 # ENV-IP-SETUP.md의 내용을 참고하여 .env 파일 작성
 
-# 의존성 설치
-npm install --production
+# 의존성 설치 (빌드에 필요한 devDependencies 포함)
+npm install
 
 # Prisma 클라이언트 생성
 npm run db:generate
@@ -91,7 +91,7 @@ cd ~/petorium
 git pull origin main
 
 # 의존성 업데이트 (필요시)
-npm install --production
+npm install
 
 # Prisma 마이그레이션 (필요시)
 npm run db:migrate
@@ -193,7 +193,7 @@ jobs:
           script: |
             cd ~/petorium
             git pull origin main
-            npm install --production
+            npm install
             npm run db:generate
             npm run db:migrate
             npm run build
@@ -230,7 +230,7 @@ npm run build
 
 # node_modules 재설치
 rm -rf node_modules
-npm install --production
+npm install
 npm run build
 ```
 
@@ -283,7 +283,7 @@ git push origin main
 # 서버에서
 cd ~/petorium
 git pull origin main
-npm install --production
+npm install
 npm run build
 pm2 restart petorium
 ```
