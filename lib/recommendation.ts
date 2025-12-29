@@ -38,7 +38,7 @@ export async function calculateVideoScores(
         // 처리 중인 비디오 제외
         AND: [
           { videoUrl: { not: { startsWith: "processing://" } } },
-          { videoUrl: { not: null } },
+          { NOT: { videoUrl: null } },
         ],
       },
       include: {
@@ -65,7 +65,7 @@ export async function calculateVideoScores(
         // 처리 중인 비디오 제외
         AND: [
           { videoUrl: { not: { startsWith: "processing://" } } },
-          { videoUrl: { not: null } },
+          { NOT: { videoUrl: null } },
         ],
       },
       include: {
@@ -129,7 +129,7 @@ export async function calculateVideoScores(
           // 처리 중인 비디오 제외
           AND: [
             { videoUrl: { not: { startsWith: "processing://" } } },
-            { videoUrl: { not: null } },
+            { NOT: { videoUrl: null } },
           ],
         },
         include: {
@@ -202,7 +202,7 @@ export async function calculateVideoScores(
             // 처리 중인 비디오 제외
             AND: [
               { videoUrl: { not: { startsWith: "processing://" } } },
-              { videoUrl: { not: null } },
+              { NOT: { videoUrl: null } },
             ],
           },
           include: {
@@ -335,7 +335,7 @@ export async function getRecommendedVideos(
       // 처리 중인 비디오 제외
       AND: [
         { videoUrl: { not: { startsWith: "processing://" } } },
-        { videoUrl: { not: null } },
+        { NOT: { videoUrl: null } },
       ],
     },
     select: { id: true },
@@ -373,7 +373,7 @@ export async function getRecommendedVideos(
       // 처리 중인 비디오 제외
       AND: [
         { videoUrl: { not: { startsWith: "processing://" } } },
-        { videoUrl: { not: null } },
+        { NOT: { videoUrl: null } },
       ],
     },
     include: {
