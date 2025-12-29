@@ -232,7 +232,7 @@ async function processVideoAsync(
         } catch (error: any) {
           console.error(`Failed to read thumbnail at ${thumbnailPath}:`, error);
           throw new Error(`썸네일 파일을 읽을 수 없습니다: ${thumbnailPath}`);
-        })
+        }
       })
     );
     
