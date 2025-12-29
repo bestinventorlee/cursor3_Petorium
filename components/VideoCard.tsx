@@ -8,8 +8,8 @@ interface VideoCardProps {
   id: string;
   title: string;
   description?: string;
-  videoUrl: string;
-  thumbnailUrl?: string;
+  videoUrl: string | null;
+  thumbnailUrl?: string | null;
   user: {
     id: string;
     username: string;
@@ -19,6 +19,7 @@ interface VideoCardProps {
   likes: number;
   comments: number;
   duration?: number;
+  processing?: boolean; // 처리 중 플래그
 }
 
 export default function VideoCard({
@@ -32,6 +33,7 @@ export default function VideoCard({
   likes,
   comments,
   duration,
+  processing = false,
 }: VideoCardProps) {
   const formatViews = (count: number) => {
     if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
@@ -46,33 +48,44 @@ export default function VideoCard({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const isProcessing = processing || !videoUrl || videoUrl.startsWith("processing://");
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-      <Link href={`/video/${id}`}>
-        <div className="relative aspect-video bg-black">
-          {thumbnailUrl ? (
-            <Image
-              src={thumbnailUrl}
-              alt={title}
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <VideoPlayer
-              src={videoUrl}
-              autoPlay={false}
-              loop={false}
-              muted={true}
-              className="aspect-video"
-            />
-          )}
-          {duration && (
-            <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
-              {formatDuration(duration)}
-            </div>
-          )}
+      {!isProcessing ? (
+        <Link href={`/video/${id}`}>
+          <div className="relative aspect-video bg-black">
+            {thumbnailUrl ? (
+              <Image
+                src={thumbnailUrl}
+                alt={title}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <VideoPlayer
+                src={videoUrl}
+                autoPlay={false}
+                loop={false}
+                muted={true}
+                className="aspect-video"
+              />
+            )}
+            {duration && (
+              <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
+                {formatDuration(duration)}
+              </div>
+            )}
+          </div>
+        </Link>
+      ) : (
+        <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white text-sm font-medium">업로드 중...</p>
+          </div>
         </div>
-      </Link>
+      )}
       <div className="p-4">
         <Link href={`/video/${id}`}>
           <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-blue-600 transition">

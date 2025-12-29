@@ -35,6 +35,11 @@ export async function calculateVideoScores(
         createdAt: { gte: last7Days },
         isRemoved: false,
         isFlagged: false,
+        // 처리 중인 비디오 제외
+        AND: [
+          { videoUrl: { not: { startsWith: "processing://" } } },
+          { videoUrl: { not: null } },
+        ],
       },
       include: {
         _count: {
@@ -57,6 +62,11 @@ export async function calculateVideoScores(
         id: { notIn: excludeVideoIds },
         isRemoved: false,
         isFlagged: false,
+        // 처리 중인 비디오 제외
+        AND: [
+          { videoUrl: { not: { startsWith: "processing://" } } },
+          { videoUrl: { not: null } },
+        ],
       },
       include: {
         _count: {
@@ -116,6 +126,11 @@ export async function calculateVideoScores(
           id: { notIn: excludeVideoIds },
           isRemoved: false,
           isFlagged: false,
+          // 처리 중인 비디오 제외
+          AND: [
+            { videoUrl: { not: { startsWith: "processing://" } } },
+            { videoUrl: { not: null } },
+          ],
         },
         include: {
           _count: {
@@ -184,6 +199,11 @@ export async function calculateVideoScores(
             userId: { not: userId }, // 자신의 비디오 제외
             isRemoved: false,
             isFlagged: false,
+            // 처리 중인 비디오 제외
+            AND: [
+              { videoUrl: { not: { startsWith: "processing://" } } },
+              { videoUrl: { not: null } },
+            ],
           },
           include: {
             _count: {
@@ -312,6 +332,11 @@ export async function getRecommendedVideos(
       id: { notIn: excludeVideoIds },
       isRemoved: false,
       isFlagged: false,
+      // 처리 중인 비디오 제외
+      AND: [
+        { videoUrl: { not: { startsWith: "processing://" } } },
+        { videoUrl: { not: null } },
+      ],
     },
     select: { id: true },
     orderBy: { createdAt: "desc" },
@@ -345,6 +370,11 @@ export async function getRecommendedVideos(
       id: { in: selectedVideoIds },
       isRemoved: false,
       isFlagged: false,
+      // 처리 중인 비디오 제외
+      AND: [
+        { videoUrl: { not: { startsWith: "processing://" } } },
+        { videoUrl: { not: null } },
+      ],
     },
     include: {
       user: {
