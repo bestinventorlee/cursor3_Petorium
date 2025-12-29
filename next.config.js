@@ -28,6 +28,12 @@ const nextConfig = {
   swcMinify: true,
   // Code splitting
   webpack: (config, { isServer }) => {
+    // 경로 별칭 설정
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname),
+    };
+    
     // ffprobe-static과 ffmpeg-static의 바이너리 파일을 외부화
     if (isServer) {
       config.externals = config.externals || [];
