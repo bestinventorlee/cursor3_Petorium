@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 import Link from "next/link";
@@ -36,11 +37,7 @@ export default function AdminVideosPage() {
   const [removed, setRemoved] = useState<string>("");
   const [flagged, setFlagged] = useState<string>("");
 
-  useEffect(() => {
-    fetchVideos();
-  }, [page, search, removed, flagged]);
-
-  const fetchVideos = async () => {
+  const fetchVideos = useCallback(async () => {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -59,7 +56,11 @@ export default function AdminVideosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, removed, flagged]);
+
+  useEffect(() => {
+    fetchVideos();
+  }, [fetchVideos]);
 
   const handleRemove = async (videoId: string, reason?: string) => {
     if (!confirm("이 비디오를 제거하시겠습니까?")) return;
@@ -175,9 +176,11 @@ export default function AdminVideosPage() {
                 className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden"
               >
                 {video.thumbnailUrl && (
-                  <img
+                  <Image
                     src={video.thumbnailUrl}
                     alt={video.title}
+                    width={320}
+                    height={192}
                     className="w-full h-48 object-cover"
                   />
                 )}

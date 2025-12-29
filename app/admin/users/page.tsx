@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 
@@ -33,11 +34,7 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState("");
   const [banned, setBanned] = useState<string>("");
 
-  useEffect(() => {
-    fetchUsers();
-  }, [page, search, role, banned]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -56,7 +53,11 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, role, banned]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleBan = async (userId: string, reason?: string) => {
     if (!confirm("이 사용자를 차단하시겠습니까?")) return;
@@ -196,9 +197,11 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
                           {user.avatar && (
-                            <img
+                            <Image
                               src={user.avatar}
                               alt={user.username}
+                              width={40}
+                              height={40}
                               className="w-10 h-10 rounded-full"
                             />
                           )}

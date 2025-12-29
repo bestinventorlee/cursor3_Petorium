@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Image from "next/image";
@@ -52,13 +52,54 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
+  const fetchVideos = useCallback(async (pageNum: number = 1) => {
+    if (!profile?.username) return;
+
+    setVideosLoading(true);
+    try {
+      let endpoint = "";
+      switch (activeTab) {
+        case "videos":
+          endpoint = `/api/users/${profile.username}/videos`;
+          break;
+        case "liked":
+          endpoint = `/api/users/${profile.username}/liked`;
+          break;
+        case "saved":
+          endpoint = `/api/users/${profile.username}/saved`;
+          break;
+        default:
+          return;
+      }
+
+      const response = await fetch(`${endpoint}?page=${pageNum}&limit=20`);
+      if (response.ok) {
+        const data = await response.json();
+        if (pageNum === 1) {
+          setVideos(data.videos || []);
+        } else {
+          setVideos((prev) => [...prev, ...(data.videos || [])]);
+        }
+        setHasMore(data.pagination.page < data.pagination.totalPages);
+        setPage(pageNum);
+      } else if (response.status === 403) {
+        setVideos([]);
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+    } finally {
+      setVideosLoading(false);
+    }
+  }, [profile?.username, activeTab]);
+
   useEffect(() => {
     if (profile && activeTab !== "settings") {
       setPage(1);
       setVideos([]);
       fetchVideos(1);
     }
-  }, [profile, activeTab]);
+  }, [profile, activeTab, fetchVideos]);
 
   const fetchProfile = async () => {
     try {
@@ -109,46 +150,6 @@ export default function ProfilePage() {
     }
   };
 
-  const fetchVideos = async (pageNum: number = 1) => {
-    if (!profile?.username) return;
-
-    setVideosLoading(true);
-    try {
-      let endpoint = "";
-      switch (activeTab) {
-        case "videos":
-          endpoint = `/api/users/${profile.username}/videos`;
-          break;
-        case "liked":
-          endpoint = `/api/users/${profile.username}/liked`;
-          break;
-        case "saved":
-          endpoint = `/api/users/${profile.username}/saved`;
-          break;
-        default:
-          return;
-      }
-
-      const response = await fetch(`${endpoint}?page=${pageNum}&limit=20`);
-      if (response.ok) {
-        const data = await response.json();
-        if (pageNum === 1) {
-          setVideos(data.videos || []);
-        } else {
-          setVideos((prev) => [...prev, ...(data.videos || [])]);
-        }
-        setHasMore(data.pagination.page < data.pagination.totalPages);
-        setPage(pageNum);
-      } else if (response.status === 403) {
-        setVideos([]);
-        setHasMore(false);
-      }
-    } catch (error) {
-      console.error("Error fetching videos:", error);
-    } finally {
-      setVideosLoading(false);
-    }
-  };
 
   const handleLoadMore = () => {
     if (!videosLoading && hasMore) {

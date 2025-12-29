@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 
@@ -37,11 +37,7 @@ export default function AdminReportsPage() {
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
 
-  useEffect(() => {
-    fetchReports();
-  }, [page, status, type]);
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -59,7 +55,11 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, status, type]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   const handleReview = async (reportId: string, status: "RESOLVED" | "DISMISSED", notes?: string) => {
     try {

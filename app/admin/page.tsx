@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 import {
@@ -67,11 +68,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("7d");
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [period]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/analytics?period=${period}`);
       const analyticsData = await response.json();
@@ -81,7 +78,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   if (loading) {
     return (
@@ -236,9 +237,11 @@ export default function AdminDashboard() {
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
                           {creator.avatar && (
-                            <img
+                            <Image
                               src={creator.avatar}
                               alt={creator.username}
+                              width={32}
+                              height={32}
                               className="w-8 h-8 rounded-full"
                             />
                           )}
