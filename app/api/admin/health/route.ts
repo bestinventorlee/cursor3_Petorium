@@ -3,6 +3,8 @@ import { withAdmin } from "@/lib/admin-middleware";
 import { prisma } from "@/lib/prisma";
 import { getRedisClient } from "@/lib/redis";
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withAdmin(async (req: NextRequest) => {
   try {
     const health = {

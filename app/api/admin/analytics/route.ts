@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAdmin } from "@/lib/admin-middleware";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withAdmin(async (req: NextRequest) => {
   try {
     const { searchParams } = new URL(req.url);
