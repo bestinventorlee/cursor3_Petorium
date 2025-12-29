@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     await writeFile(tempFilePath, buffer);
 
     try {
-      // 비디오 메타데이터 가져오기
+      // 비디오 메타데이터 가져오기 (빠른 검증만)
       const metadata = await getVideoMetadata(tempFilePath);
 
       // 길이 검증
@@ -97,61 +97,13 @@ export async function POST(request: NextRequest) {
         throw new Error(`비디오 길이는 최대 ${MAX_DURATION}초까지 가능합니다`);
       }
 
-      // 비디오 압축 및 처리
-      const processedFileName = `processed-${fileName}`;
-      processedFilePath = join(uploadDir, processedFileName);
-      await processVideo(tempFilePath, processedFilePath);
-
-      // 썸네일 생성 (1개만 - 첫 번째 프레임) - 업로드 시간 단축
-      const thumbnailTimestamps = [1]; // 첫 번째 프레임만
-
-      thumbnailPaths = await generateThumbnails(
-        processedFilePath,
-        uploadDir,
-        `thumbnail-${timestamp}`,
-        thumbnailTimestamps
-      );
-
-      // 처리된 비디오 및 썸네일 읽기
-      const processedBuffer = await readFile(processedFilePath);
-      
-      // 썸네일 파일이 존재하는지 확인하고 읽기
-      const thumbnailBuffers = await Promise.all(
-        thumbnailPaths.map(async (thumbnailPath) => {
-          try {
-            return await readFile(thumbnailPath);
-          } catch (error: any) {
-            console.error(`Failed to read thumbnail at ${thumbnailPath}:`, error);
-            throw new Error(`썸네일 파일을 읽을 수 없습니다: ${thumbnailPath}`);
-          }
-        })
-      );
-      
-      if (thumbnailBuffers.length === 0) {
-        throw new Error("썸네일이 생성되지 않았습니다");
-      }
-
-      // S3 또는 R2에 업로드 (재시도 로직 포함)
-      const videoFileName = `video-${timestamp}.mp4`;
-      const videoUrl = await uploadWithRetry(
-        () => uploadVideoFile(processedBuffer, videoFileName, "video/mp4"),
-        MAX_RETRIES
-      );
-
-      // 첫 번째 썸네일을 메인 썸네일로 사용
-      const thumbnailFileName = `thumbnail-${timestamp}-0.jpg`;
-      const thumbnailUrl = await uploadWithRetry(
-        () => uploadThumbnailFile(thumbnailBuffers[0], thumbnailFileName),
-        MAX_RETRIES
-      );
-
-      // 데이터베이스에 저장
+      // 즉시 데이터베이스에 저장 (처리 중 상태)
       const video = await prisma.video.create({
         data: {
           title: title.trim(),
           description: description?.trim() || null,
-          videoUrl,
-          thumbnailUrl,
+          videoUrl: `processing://${timestamp}`, // 임시 URL (처리 완료 후 업데이트)
+          thumbnailUrl: null, // 처리 완료 후 업데이트
           duration: Math.round(metadata.duration),
           userId,
         },
@@ -166,25 +118,34 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 임시 파일 삭제
-      await cleanupFiles([
+      // 즉시 응답 반환 (비동기 처리 시작)
+      // 백그라운드에서 처리 시작 (await 없이 실행)
+      processVideoAsync(
+        video.id,
         tempFilePath,
-        processedFilePath,
-        ...thumbnailPaths,
-      ]);
+        uploadDir,
+        timestamp,
+        fileName,
+        metadata
+      ).catch((error) => {
+        console.error(`비동기 비디오 처리 실패 (videoId: ${video.id}):`, error);
+        // 오류 발생 시 비디오 삭제 또는 상태 업데이트
+        prisma.video.delete({ where: { id: video.id } }).catch(console.error);
+      });
 
       return NextResponse.json(
         {
-          message: "비디오가 성공적으로 업로드되었습니다",
+          message: "비디오 업로드가 시작되었습니다. 처리 중입니다...",
           videoId: video.id,
           video: {
             id: video.id,
             title: video.title,
             description: video.description,
-            videoUrl: video.videoUrl,
-            thumbnailUrl: video.thumbnailUrl,
+            videoUrl: null, // 처리 중
+            thumbnailUrl: null, // 처리 중
             duration: video.duration,
             user: video.user,
+            processing: true, // 처리 중 플래그
           },
         },
         { status: 201 }
@@ -230,6 +191,96 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+// 비동기 비디오 처리 함수
+async function processVideoAsync(
+  videoId: string,
+  tempFilePath: string,
+  uploadDir: string,
+  timestamp: number,
+  fileName: string,
+  metadata: { duration: number; width: number; height: number; size: number; hasAudio?: boolean }
+) {
+  let processedFilePath: string | null = null;
+  let thumbnailPaths: string[] = [];
+
+  try {
+    // 비디오 압축 및 처리
+    const processedFileName = `processed-${fileName}`;
+    processedFilePath = join(uploadDir, processedFileName);
+    await processVideo(tempFilePath, processedFilePath);
+
+    // 썸네일 생성 (1개만 - 첫 번째 프레임)
+    const thumbnailTimestamps = [1];
+    thumbnailPaths = await generateThumbnails(
+      processedFilePath,
+      uploadDir,
+      `thumbnail-${timestamp}`,
+      thumbnailTimestamps
+    );
+
+    // 처리된 비디오 및 썸네일 읽기
+    const processedBuffer = await readFile(processedFilePath);
+    
+    // 썸네일 파일 읽기
+    const thumbnailBuffers = await Promise.all(
+      thumbnailPaths.map(async (thumbnailPath) => {
+        try {
+          return await readFile(thumbnailPath);
+        } catch (error: any) {
+          console.error(`Failed to read thumbnail at ${thumbnailPath}:`, error);
+          throw new Error(`썸네일 파일을 읽을 수 없습니다: ${thumbnailPath}`);
+        })
+      })
+    );
+    
+    if (thumbnailBuffers.length === 0) {
+      throw new Error("썸네일이 생성되지 않았습니다");
+    }
+
+    // S3 또는 R2에 업로드 (재시도 로직 포함)
+    const videoFileName = `video-${timestamp}.mp4`;
+    const videoUrl = await uploadWithRetry(
+      () => uploadVideoFile(processedBuffer, videoFileName, "video/mp4"),
+      MAX_RETRIES
+    );
+
+    // 첫 번째 썸네일을 메인 썸네일로 사용
+    const thumbnailFileName = `thumbnail-${timestamp}-0.jpg`;
+    const thumbnailUrl = await uploadWithRetry(
+      () => uploadThumbnailFile(thumbnailBuffers[0], thumbnailFileName),
+      MAX_RETRIES
+    );
+
+    // 데이터베이스 업데이트 (처리 완료)
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        videoUrl,
+        thumbnailUrl,
+      },
+    });
+
+    // 임시 파일 삭제
+    await cleanupFiles([
+      tempFilePath,
+      processedFilePath,
+      ...thumbnailPaths,
+    ]);
+
+    console.log(`비디오 처리 완료: ${videoId}`);
+  } catch (error: any) {
+    // 오류 발생 시 임시 파일 삭제
+    await cleanupFiles([
+      tempFilePath,
+      processedFilePath,
+      ...thumbnailPaths,
+    ].filter(Boolean) as string[]);
+
+    console.error(`비디오 처리 오류 (videoId: ${videoId}):`, error);
+    throw error;
   }
 }
 
