@@ -69,6 +69,7 @@ export interface VideoMetadata {
   width: number;
   height: number;
   size: number; // in bytes
+  hasAudio?: boolean; // 오디오 스트림 존재 여부
 }
 
 export async function getVideoMetadata(videoPath: string): Promise<VideoMetadata> {
@@ -85,11 +86,15 @@ export async function getVideoMetadata(videoPath: string): Promise<VideoMetadata
         return;
       }
 
+      const audioStream = metadata.streams.find((s: any) => s.codec_type === "audio");
+      const hasAudio = audioStream !== undefined;
+
       resolve({
         duration: metadata.format.duration || 0,
         width: videoStream.width || 0,
         height: videoStream.height || 0,
         size: metadata.format.size || 0,
+        hasAudio,
       });
     });
   });
@@ -254,9 +259,11 @@ export async function processVideo(
   targetHeight = targetHeight % 2 === 0 ? targetHeight : targetHeight - 1;
   
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    // 비디오 메타데이터에서 오디오 스트림 존재 여부 확인
+    const hasAudio = metadata.hasAudio === true;
+    
+    const command = ffmpeg(inputPath)
       .videoCodec("libx264")
-      .audioCodec("aac")
       .outputOptions([
         "-preset fast",
         "-crf 23", // Quality: lower is better, 23 is good balance
@@ -264,11 +271,21 @@ export async function processVideo(
         "-pix_fmt yuv420p", // Compatibility
         "-maxrate 2M", // Max bitrate
         "-bufsize 4M", // Buffer size
-        "-map 0", // 모든 스트림 포함 (비디오 + 오디오)
         `-vf scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`, // 비율 유지하며 리사이즈
       ])
-      .videoBitrate("1500k") // Video bitrate
-      .audioBitrate("128k") // Audio bitrate
+      .videoBitrate("1500k"); // Video bitrate
+    
+    // 오디오가 있는 경우에만 오디오 처리 옵션 추가
+    if (hasAudio) {
+      command
+        .audioCodec("aac")
+        .audioBitrate("128k");
+    } else {
+      // 오디오가 없으면 오디오 스트림을 생성하지 않음
+      command.outputOptions(["-an"]); // 오디오 없음
+    }
+    
+    command
       .on("start", (commandLine) => {
         console.log("FFmpeg command:", commandLine);
         console.log(`Processing video: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight}`);
