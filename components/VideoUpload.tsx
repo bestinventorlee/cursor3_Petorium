@@ -212,11 +212,21 @@ export default function VideoUpload({
               });
             }
 
+            // 오류 상태 코드인 경우 로그 출력
+            if (!response.ok) {
+              console.error("Upload failed:", {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                response: xhr.responseText,
+              });
+            }
+
             resolve(response);
           });
 
-          xhr.addEventListener("error", () => {
-            reject(new Error("Network error during upload"));
+          xhr.addEventListener("error", (e) => {
+            console.error("XHR error:", e);
+            reject(new Error("네트워크 오류가 발생했습니다. 연결을 확인해주세요."));
           });
 
           xhr.addEventListener("abort", () => {
@@ -306,6 +316,7 @@ export default function VideoUpload({
         fileInputRef.current.value = "";
       }
     } catch (err: any) {
+      console.error("Upload error:", err);
       const errorMessage = err.message || "업로드 중 오류가 발생했습니다";
       setError(errorMessage);
       if (onUploadError) {
