@@ -42,6 +42,7 @@ export default function VideoPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -58,6 +59,15 @@ export default function VideoPage() {
 
         const data = await response.json();
         setVideo(data);
+        
+        // 처리 중인 비디오 확인
+        const processing = data.videoUrl?.startsWith("processing://") || data.videoUrl?.startsWith("error://");
+        setIsProcessing(processing);
+        
+        // 처리 중이면 상태 확인 시작
+        if (processing) {
+          checkVideoStatus(data.id);
+        }
       } catch (err) {
         console.error("Error fetching video:", err);
         setError("비디오를 불러오는 중 오류가 발생했습니다");
@@ -70,6 +80,41 @@ export default function VideoPage() {
       fetchVideo();
     }
   }, [params.id]);
+
+  // 비디오 처리 상태 확인 및 폴링
+  const checkVideoStatus = async (videoId: string) => {
+    let attempts = 0;
+    const maxAttempts = 120; // 최대 10분 (5초 * 120)
+
+    const pollStatus = async () => {
+      try {
+        const response = await fetch(`/api/videos/${videoId}/status`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        
+        if (!data.isProcessing) {
+          // 처리 완료 - 비디오 다시 로드
+          setIsProcessing(false);
+          const videoResponse = await fetch(`/api/videos/${videoId}`);
+          if (videoResponse.ok) {
+            const videoData = await videoResponse.json();
+            setVideo(videoData);
+          }
+          return;
+        }
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(pollStatus, 5000); // 5초 후 다시 확인
+        }
+      } catch (error) {
+        console.error("Error checking video status:", error);
+      }
+    };
+
+    pollStatus();
+  };
 
   if (loading) {
     return (
@@ -222,13 +267,21 @@ export default function VideoPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* 비디오 플레이어 */}
         <div className="mb-6 flex justify-center">
-          <div className="relative bg-black rounded-lg overflow-hidden" style={{ maxWidth: '100%', maxHeight: '80vh', aspectRatio: '9/16' }}>
-            <VideoPlayerFeed
-              src={video.videoUrl}
-              poster={video.thumbnailUrl}
-              videoId={video.id}
-              className="w-full h-full"
-            />
+          <div className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center" style={{ maxWidth: '100%', maxHeight: '80vh', aspectRatio: '9/16' }}>
+            {isProcessing ? (
+              <div className="flex flex-col items-center justify-center text-white p-8">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mb-4"></div>
+                <p className="text-lg font-medium mb-2">비디오를 처리하고 있습니다</p>
+                <p className="text-sm text-gray-400">잠시만 기다려주세요...</p>
+              </div>
+            ) : (
+              <VideoPlayerFeed
+                src={video.videoUrl}
+                poster={video.thumbnailUrl}
+                videoId={video.id}
+                className="w-full h-full"
+              />
+            )}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import VideoUpload from "@/components/VideoUpload";
@@ -9,15 +9,77 @@ export default function UploadPage() {
   const router = useRouter();
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 비디오 처리 상태 확인
+  const checkVideoStatus = async (videoId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/videos/${videoId}/status`);
+      if (!response.ok) {
+        return false;
+      }
+      const data = await response.json();
+      return !data.isProcessing; // 처리 완료되면 true 반환
+    } catch (error) {
+      console.error("Error checking video status:", error);
+      return false;
+    }
+  };
+
+  // 비디오 처리 완료까지 폴링
+  useEffect(() => {
+    if (!uploadedVideoId || !uploadSuccess) return;
+
+    setIsProcessing(true);
+    let attempts = 0;
+    const maxAttempts = 120; // 최대 10분 (5초 * 120)
+
+    const pollStatus = async () => {
+      attempts++;
+      const isComplete = await checkVideoStatus(uploadedVideoId);
+
+      if (isComplete) {
+        setIsProcessing(false);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        // 처리 완료 후 비디오 페이지로 이동
+        setTimeout(() => {
+          router.push(`/video/${uploadedVideoId}`);
+        }, 1000);
+      } else if (attempts >= maxAttempts) {
+        // 최대 시도 횟수 초과 시에도 이동 (사용자가 직접 확인)
+        setIsProcessing(false);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setTimeout(() => {
+          router.push(`/video/${uploadedVideoId}`);
+        }, 1000);
+      }
+    };
+
+    // 즉시 한 번 확인
+    pollStatus();
+
+    // 5초마다 확인
+    pollingIntervalRef.current = setInterval(pollStatus, 5000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [uploadedVideoId, uploadSuccess, router]);
 
   const handleUploadComplete = (videoId: string) => {
     setUploadedVideoId(videoId);
     setUploadSuccess(true);
-    
-    // 3초 후 비디오 페이지로 이동
-    setTimeout(() => {
-      router.push(`/video/${videoId}`);
-    }, 3000);
+    // 리다이렉트는 처리 완료 확인 후 수행
   };
 
   const handleUploadError = (error: string) => {
@@ -39,25 +101,43 @@ export default function UploadPage() {
           </div>
 
           {uploadSuccess && uploadedVideoId && (
-            <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <div className={`mb-6 border px-4 py-3 rounded-lg ${
+              isProcessing 
+                ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
+                : "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300"
+            }`}>
               <div className="flex items-center">
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <div>
-                  <p className="font-medium">업로드가 완료되었습니다!</p>
-                  <p className="text-sm">
-                    비디오 페이지로 이동합니다...
-                  </p>
-                </div>
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                    <div>
+                      <p className="font-medium">비디오 업로드 완료!</p>
+                      <p className="text-sm">
+                        비디오를 처리하고 있습니다. 잠시만 기다려주세요...
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div>
+                      <p className="font-medium">처리가 완료되었습니다!</p>
+                      <p className="text-sm">
+                        비디오 페이지로 이동합니다...
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
