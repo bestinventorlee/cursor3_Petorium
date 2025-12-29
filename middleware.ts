@@ -60,11 +60,14 @@ export async function middleware(request: NextRequest) {
       // Skip CSRF in development for easier testing (remove in production)
       const isDevelopment = process.env.NODE_ENV === "development";
 
-      if (!skipCSRF && !isDevelopment && !validateCSRF(request)) {
-        return NextResponse.json(
-          { error: "Invalid CSRF token" },
-          { status: 403 }
-        );
+      if (!skipCSRF && !isDevelopment) {
+        const isValid = await validateCSRF(request);
+        if (!isValid) {
+          return NextResponse.json(
+            { error: "Invalid CSRF token" },
+            { status: 403 }
+          );
+        }
       }
     }
   }
