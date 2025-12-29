@@ -258,6 +258,20 @@ export async function processVideo(
   targetWidth = targetWidth % 2 === 0 ? targetWidth : targetWidth - 1;
   targetHeight = targetHeight % 2 === 0 ? targetHeight : targetHeight - 1;
   
+  // 원본이 이미 적절한 크기이고 형식이 맞으면 변환 건너뛰기
+  if (
+    originalWidth === targetWidth &&
+    originalHeight === targetHeight &&
+    originalWidth <= maxWidth &&
+    originalHeight <= maxHeight
+  ) {
+    console.log("원본 비디오가 이미 적절한 크기입니다. 변환을 건너뜁니다.");
+    // 원본 파일을 그대로 복사
+    const fs = require("fs/promises");
+    await fs.copyFile(inputPath, outputPath);
+    return outputPath;
+  }
+  
   return new Promise((resolve, reject) => {
     // 비디오 메타데이터에서 오디오 스트림 존재 여부 확인
     const hasAudio = metadata.hasAudio === true;
@@ -274,13 +288,14 @@ export async function processVideo(
     const command = ffmpeg(inputPath)
       .videoCodec("libx264")
       .outputOptions([
-        "-preset fast",
+        "-preset veryfast", // fast → veryfast로 변경 (약 2-3배 빠름, 약간의 품질 손실)
         "-crf 23", // Quality: lower is better, 23 is good balance
         "-movflags +faststart", // Enable streaming
         "-pix_fmt yuv420p", // Compatibility
         "-maxrate 2M", // Max bitrate
         "-bufsize 4M", // Buffer size
         `-vf ${scaleFilter}`, // 비율 유지하며 리사이즈하고 짝수로 맞춤
+        "-threads 0", // 모든 CPU 코어 사용
       ])
       .videoBitrate("1500k"); // Video bitrate
     

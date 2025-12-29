@@ -169,14 +169,44 @@ export default function VideoUpload({
         const xhr = new XMLHttpRequest();
 
         return new Promise((resolve, reject) => {
+          let progressInterval: NodeJS.Timeout | null = null;
+          let loadStartTime: number | null = null;
+          
+          const cleanup = () => {
+            if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+            }
+          };
+          
           xhr.upload.addEventListener("progress", (e) => {
             if (e.lengthComputable) {
-              const percentComplete = (e.loaded / e.total) * 100;
-              setProgress(percentComplete);
+              // 파일 업로드 진행률 (0-20%)
+              // 나머지 80%는 서버에서 비디오 처리 중
+              const uploadPercent = (e.loaded / e.total) * 20;
+              setProgress(uploadPercent);
+              
+              // 파일 업로드가 완료되면 서버 처리 진행률 시작
+              if (e.loaded === e.total && !progressInterval) {
+                loadStartTime = Date.now();
+                progressInterval = setInterval(() => {
+                  if (xhr.readyState < 4 && loadStartTime) {
+                    // 파일 업로드 완료 후 서버 처리 중
+                    const elapsed = Date.now() - loadStartTime;
+                    // 최소 20%에서 시작하여 서버 처리 시간에 따라 점진적으로 증가
+                    const baseProgress = 20;
+                    const additionalProgress = Math.min(60, elapsed / 100); // 최대 80%까지
+                    setProgress(baseProgress + additionalProgress);
+                  } else {
+                    cleanup();
+                  }
+                }, 500); // 0.5초마다 업데이트
+              }
             }
           });
 
           xhr.addEventListener("load", () => {
+            cleanup();
             // XMLHttpRequest 응답을 Response 객체로 변환
             const response = new Response(xhr.responseText, {
               status: xhr.status,
@@ -225,15 +255,27 @@ export default function VideoUpload({
           });
 
           xhr.addEventListener("error", (e) => {
+            cleanup();
             console.error("XHR error:", e);
             reject(new Error("네트워크 오류가 발생했습니다. 연결을 확인해주세요."));
           });
 
           xhr.addEventListener("abort", () => {
+            cleanup();
             reject(new Error("Upload aborted"));
           });
-
+          
           xhr.open("POST", "/api/videos/upload");
+          
+          // 타임아웃 설정 (10분 = 600000ms) - 비디오 처리 시간 고려
+          xhr.timeout = 600000; // 10분
+          
+          // 타임아웃 이벤트 핸들러
+          xhr.addEventListener("timeout", () => {
+            cleanup();
+            console.error("Upload timeout");
+            reject(new Error("업로드 시간이 초과되었습니다. 파일 크기를 확인하거나 다시 시도해주세요."));
+          });
           
           // CSRF 토큰을 헤더에 추가
           if (csrfToken) {

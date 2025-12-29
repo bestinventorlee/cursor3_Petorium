@@ -49,12 +49,13 @@ export async function middleware(request: NextRequest) {
 
     // CSRF protection for state-changing methods
     if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
-      // Skip CSRF for certain routes (e.g., webhooks, public APIs, NextAuth)
+      // Skip CSRF for certain routes (e.g., webhooks, public APIs, NextAuth, long-running uploads)
       const skipCSRF = [
         "/api/auth/callback",
         "/api/auth/[...nextauth]",
         "/api/webhooks",
         "/api/csrf-token", // CSRF token endpoint itself
+        "/api/videos/upload", // 비디오 업로드는 처리 시간이 길어 CSRF 검증 건너뜀 (서버에서 인증 확인)
       ].some((route) => pathname.startsWith(route));
 
       // Skip CSRF in development for easier testing (remove in production)

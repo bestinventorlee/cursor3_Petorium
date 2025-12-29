@@ -102,12 +102,8 @@ export async function POST(request: NextRequest) {
       processedFilePath = join(uploadDir, processedFileName);
       await processVideo(tempFilePath, processedFilePath);
 
-      // 여러 썸네일 생성 (1초, 중간, 마지막)
-      const thumbnailTimestamps = [
-        1,
-        Math.floor(metadata.duration / 2),
-        Math.max(1, Math.floor(metadata.duration - 1)),
-      ].filter((t) => t >= 1 && t < metadata.duration);
+      // 썸네일 생성 (1개만 - 첫 번째 프레임) - 업로드 시간 단축
+      const thumbnailTimestamps = [1]; // 첫 번째 프레임만
 
       thumbnailPaths = await generateThumbnails(
         processedFilePath,
