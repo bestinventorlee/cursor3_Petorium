@@ -26,7 +26,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider
+      refetchInterval={0} // 세션 자동 갱신 비활성화
+      refetchOnWindowFocus={false} // 창 포커스 시 세션 갱신 비활성화
+    >
       <AuthContextProvider>{children}</AuthContextProvider>
     </SessionProvider>
   );

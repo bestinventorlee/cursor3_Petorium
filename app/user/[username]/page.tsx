@@ -59,11 +59,14 @@ export default function UserProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
+    console.log(`[UserProfile] Loading profile for username: ${username}`);
+    console.log(`[UserProfile] Current user:`, currentUser ? `${currentUser.username} (${currentUser.id})` : 'null');
     fetchUser();
-  }, [username]);
+  }, [username, currentUser]);
 
   useEffect(() => {
     if (user) {
+      console.log(`[UserProfile] User loaded: ${user.username} (${user.id})`);
       checkFollowStatus();
     }
   }, [user]);
@@ -78,16 +81,26 @@ export default function UserProfilePage() {
 
   const fetchUser = async () => {
     try {
+      console.log(`[UserProfile] Fetching user: /api/users/${username}`);
       const response = await fetch(`/api/users/${username}`);
+      console.log(`[UserProfile] Response status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log(`[UserProfile] User data received:`, { id: data.id, username: data.username });
         setUser(data);
       } else if (response.status === 404) {
         // 사용자를 찾을 수 없음
+        console.log(`[UserProfile] User not found: ${username}`);
+        setUser(null);
+      } else {
+        console.error(`[UserProfile] Unexpected status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`[UserProfile] Error data:`, errorData);
         setUser(null);
       }
     } catch (error) {
-      console.error("Error fetching user:", error);
+      console.error("[UserProfile] Error fetching user:", error);
       setUser(null);
     } finally {
       setLoading(false);

@@ -56,6 +56,7 @@ export async function middleware(request: NextRequest) {
         "/api/webhooks",
         "/api/csrf-token", // CSRF token endpoint itself
         "/api/videos/upload", // 비디오 업로드는 처리 시간이 길어 CSRF 검증 건너뜀 (서버에서 인증 확인)
+        "/api/analytics/web-vitals", // Web Vitals는 공개 API (CSRF 토큰 없이 호출됨)
       ].some((route) => pathname.startsWith(route));
 
       // Skip CSRF in development for easier testing

@@ -59,6 +59,9 @@ export async function POST(request: NextRequest) {
 
     // 비밀번호 해시 (salt rounds 12로 통일)
     const hashedPassword = await bcrypt.hash(password, 12);
+    console.log(`[Register] Creating user: ${normalizedEmail}, username: ${username}`);
+    console.log(`[Register] Password hash length: ${hashedPassword.length}`);
+    console.log(`[Register] Password hash prefix: ${hashedPassword.substring(0, 30)}...`);
 
     // 사용자 생성 (정규화된 이메일 저장)
     const user = await prisma.user.create({
@@ -77,6 +80,8 @@ export async function POST(request: NextRequest) {
         createdAt: true,
       },
     });
+
+    console.log(`[Register] User created successfully: ${user.email} (${user.username})`);
 
     return NextResponse.json(
       {

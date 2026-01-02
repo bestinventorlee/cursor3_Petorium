@@ -83,15 +83,27 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log(`[Auth] Found user: ${foundUser.email} (${foundUser.username}), comparing password...`);
+          console.log(`[Auth] Password hash exists: ${!!foundUser.password}`);
+          console.log(`[Auth] Password hash length: ${foundUser.password?.length || 0}`);
+          console.log(`[Auth] Password hash prefix: ${foundUser.password?.substring(0, 30) || 'null'}...`);
           
+          // 비밀번호 비교
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             foundUser.password
           );
 
+          console.log(`[Auth] Password comparison result: ${isPasswordValid}`);
+
           if (!isPasswordValid) {
             console.error(`[Auth] Invalid password for user: ${normalizedEmail}`);
-            console.error(`[Auth] Password hash in DB: ${foundUser.password.substring(0, 20)}...`);
+            console.error(`[Auth] Input password length: ${credentials.password.length}`);
+            console.error(`[Auth] Stored password hash: ${foundUser.password?.substring(0, 30)}...`);
+            
+            // 디버깅: 비밀번호 해시 형식 확인
+            const hashParts = foundUser.password?.split('$') || [];
+            console.error(`[Auth] Hash format: ${hashParts.length} parts, algorithm: ${hashParts[0] || 'unknown'}`);
+            
             throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
           }
 
@@ -146,6 +158,10 @@ export const authOptions: NextAuthOptions = {
         path: "/",
         // HTTPS가 아닌 경우 secure를 false로 설정
         secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
+        // 도메인 명시 (IP 주소 사용 시 도메인 설정하지 않음)
+        // domain: process.env.NEXTAUTH_URL?.includes("://") 
+        //   ? new URL(process.env.NEXTAUTH_URL).hostname 
+        //   : undefined,
       },
     },
     callbackUrl: {
