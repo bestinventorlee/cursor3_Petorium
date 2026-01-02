@@ -119,59 +119,78 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[Auth] Starting logout process...");
       
-      // 1. 모든 쿠키 직접 삭제 (먼저 실행)
+      // 1. NextAuth signout API를 먼저 호출 (서버 측 쿠키 삭제)
+      try {
+        console.log("[Auth] Calling NextAuth signout API...");
+        const signoutResponse = await fetch("/api/auth/signout", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        console.log("[Auth] Signout API response status:", signoutResponse.status);
+      } catch (err) {
+        console.warn("[Auth] Signout API error:", err);
+      }
+      
+      // 2. NextAuth signOut 함수 호출 (클라이언트 측 세션 정리)
+      try {
+        console.log("[Auth] Calling signOut function...");
+        await signOut({ 
+          redirect: false,
+          callbackUrl: "/"
+        });
+        console.log("[Auth] SignOut function completed");
+      } catch (signOutError) {
+        console.warn("[Auth] SignOut function error:", signOutError);
+      }
+      
+      // 3. 모든 쿠키 직접 삭제 시도 (httpOnly가 아닌 쿠키만 삭제 가능)
       if (typeof window !== "undefined") {
-        // 모든 next-auth 관련 쿠키 삭제
+        console.log("[Auth] Attempting to delete cookies...");
         const cookies = document.cookie.split(";");
+        const hostname = window.location.hostname;
+        
         cookies.forEach((cookie) => {
           const name = cookie.trim().split("=")[0];
-          if (name.startsWith("next-auth") || name.includes("session")) {
+          if (name.startsWith("next-auth") || name.includes("session") || name.includes("csrf")) {
             // 여러 경로와 도메인으로 시도
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname};`;
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=.${window.location.hostname};`;
+            const paths = ["/", "/api", "/api/auth"];
+            paths.forEach((path) => {
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=${path};`;
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=${path};domain=${hostname};`;
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=${path};domain=.${hostname};`;
+            });
           }
         });
+        console.log("[Auth] Cookie deletion attempted");
         
         // 로컬 스토리지 및 세션 스토리지 정리
         localStorage.removeItem("csrf-token");
         localStorage.clear();
         sessionStorage.clear();
+        console.log("[Auth] Storage cleared");
       }
       
-      // 2. NextAuth signOut 호출
-      try {
-        await signOut({ 
-          redirect: false,
-          callbackUrl: "/"
-        });
-        console.log("[Auth] SignOut completed");
-      } catch (signOutError) {
-        console.warn("[Auth] SignOut error (continuing anyway):", signOutError);
-      }
-      
-      // 3. 세션 API를 직접 호출하여 세션 제거 시도
-      try {
-        await fetch("/api/auth/signout", {
-          method: "POST",
-          credentials: "include",
-        }).catch(() => {
-          // API가 없어도 계속 진행
-        });
-      } catch (err) {
-        console.warn("[Auth] Signout API error:", err);
-      }
-      
-      // 4. 강제로 페이지 새로고침하여 모든 상태 초기화
-      // 즉시 실행하여 세션 상태를 초기화
+      // 4. 세션 상태 강제 초기화를 위해 페이지 완전히 새로고침
+      console.log("[Auth] Redirecting to home and reloading...");
       if (typeof window !== "undefined") {
-        window.location.href = "/";
+        // 쿠키 삭제가 완료되도록 약간의 지연 후 리다이렉트
+        setTimeout(() => {
+          window.location.href = "/";
+          // 추가로 reload 호출하여 세션 상태 완전히 초기화
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        }, 300);
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
       // 에러가 발생해도 강제로 홈으로 이동
       if (typeof window !== "undefined") {
         window.location.href = "/";
+        window.location.reload();
       }
     }
   };

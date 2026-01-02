@@ -95,24 +95,43 @@ export default function Navbar() {
                     if (confirm("정말 로그아웃하시겠습니까?")) {
                       try {
                         console.log("[Navbar] Logging out...");
+                        
+                        // 1. NextAuth signout API 호출
+                        try {
+                          await fetch("/api/auth/signout", {
+                            method: "POST",
+                            credentials: "include",
+                          });
+                        } catch (err) {
+                          console.warn("[Navbar] Signout API error:", err);
+                        }
+                        
+                        // 2. signOut 함수 호출
                         await signOut({ redirect: false });
-                        // CSRF 토큰 제거
+                        
+                        // 3. 쿠키 직접 삭제
                         if (typeof window !== "undefined") {
-                          localStorage.removeItem("csrf-token");
-                          sessionStorage.clear();
-                          // 쿠키 직접 삭제
-                          document.cookie.split(";").forEach((c) => {
-                            const name = c.trim().split("=")[0];
-                            if (name.startsWith("next-auth")) {
+                          const cookies = document.cookie.split(";");
+                          cookies.forEach((cookie) => {
+                            const name = cookie.trim().split("=")[0];
+                            if (name.startsWith("next-auth") || name.includes("session")) {
                               document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+                              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname};`;
                             }
                           });
+                          localStorage.clear();
+                          sessionStorage.clear();
                         }
-                        // 강제로 페이지 새로고침
-                        window.location.href = "/";
+                        
+                        // 4. 강제로 페이지 새로고침
+                        setTimeout(() => {
+                          window.location.href = "/";
+                          window.location.reload();
+                        }, 200);
                       } catch (error) {
                         console.error("Logout error:", error);
                         window.location.href = "/";
+                        window.location.reload();
                       }
                     }
                   }}
