@@ -28,9 +28,11 @@ export async function withAuth(
 }
 
 export async function requireAuth(req: NextRequest): Promise<string> {
+  // Next.js App Router에서 쿠키를 읽기 위해 요청 객체를 전달해야 함
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
+    console.error("[Auth] No session found in requireAuth");
     throw new Error("인증이 필요합니다");
   }
 

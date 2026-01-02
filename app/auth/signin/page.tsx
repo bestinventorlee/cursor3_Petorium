@@ -58,20 +58,41 @@ export default function SignInPage() {
         return;
       }
 
-      // 로그인 성공 - 세션 업데이트 시도
+      // 로그인 성공 - 세션 업데이트 및 확인
       try {
         await update();
+        
+        // 세션이 제대로 설정되었는지 확인
+        let retryCount = 0;
+        const maxRetries = 5;
+        
+        while (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const currentSession = await fetch('/api/auth/session').then(res => res.json()).catch(() => null);
+          
+          if (currentSession?.user?.id) {
+            console.log("[SignIn] Session confirmed:", currentSession.user.id);
+            // 세션 확인됨 - 리다이렉트
+            router.push("/");
+            router.refresh();
+            return;
+          }
+          
+          retryCount++;
+          // 마지막 시도에서도 세션이 없으면 강제 리다이렉트
+          if (retryCount >= maxRetries) {
+            console.warn("[SignIn] Session not found after retries, redirecting anyway");
+            router.push("/");
+            router.refresh();
+            return;
+          }
+        }
       } catch (updateError) {
         console.error("Session update error:", updateError);
-        // 업데이트 실패해도 계속 진행
-      }
-
-      // 세션 업데이트 후 리다이렉트
-      // 세션이 반영될 시간을 주기 위해 약간의 지연
-      setTimeout(() => {
+        // 업데이트 실패해도 리다이렉트 시도
         router.push("/");
         router.refresh();
-      }, 300);
+      }
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err?.message || "로그인 중 오류가 발생했습니다");

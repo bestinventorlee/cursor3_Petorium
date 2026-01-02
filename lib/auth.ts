@@ -107,7 +107,8 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        // HTTPS가 아닌 경우 secure를 false로 설정
+        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
       },
     },
     callbackUrl: {
@@ -116,7 +117,7 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
       },
     },
     csrfToken: {
@@ -125,7 +126,7 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
       },
     },
   },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Image from "next/image";
@@ -30,7 +31,8 @@ interface Video {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -48,9 +50,18 @@ export default function ProfilePage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
+  // 인증 확인 및 리다이렉트
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (!authLoading && !user) {
+      router.push("/auth/signin?callbackUrl=/profile");
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
 
   const fetchVideos = useCallback(async (pageNum: number = 1) => {
     if (!profile?.username) return;
@@ -163,12 +174,16 @@ export default function ProfilePage() {
     setHasMore(true);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null; // 리다이렉트 중
   }
 
   return (
