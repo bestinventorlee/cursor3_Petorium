@@ -10,8 +10,7 @@ export async function POST(request: NextRequest) {
       console.log("[Logout API] Logging out user:", session.user?.id);
     }
 
-    // NextAuth의 signout은 쿠키를 자동으로 삭제하지만,
-    // 명시적으로 응답 헤더에 쿠키 삭제 지시를 추가
+    // 응답 생성
     const response = NextResponse.json({ 
       success: true,
       message: "로그아웃되었습니다"
@@ -24,27 +23,45 @@ export async function POST(request: NextRequest) {
       "next-auth.callback-url",
     ];
 
+    const isSecure = process.env.NEXTAUTH_URL?.startsWith("https://") ?? false;
+    const hostname = request.headers.get("host") || "";
+
     cookieNames.forEach((name) => {
-      // 여러 경로와 도메인으로 쿠키 삭제
-      response.cookies.set(name, "", {
-        expires: new Date(0),
-        path: "/",
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
+      // 여러 경로로 쿠키 삭제 시도
+      const paths = ["/", "/api", "/api/auth"];
+      
+      paths.forEach((path) => {
+        // 기본 경로로 삭제
+        response.cookies.set(name, "", {
+          expires: new Date(0),
+          path: path,
+          httpOnly: true,
+          sameSite: "lax",
+          secure: isSecure,
+        });
+        
+        // 도메인 없이 삭제 (현재 도메인)
+        response.cookies.set(name, "", {
+          expires: new Date(0),
+          path: path,
+          httpOnly: true,
+          sameSite: "lax",
+          secure: isSecure,
+          domain: undefined,
+        });
       });
       
-      // /api 경로용
-      response.cookies.set(name, "", {
-        expires: new Date(0),
-        path: "/api",
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
-      });
+      // 헤더에 직접 Set-Cookie 추가 (더 확실한 방법)
+      const cookieHeader = response.headers.get("Set-Cookie") || "";
+      const newCookies = [
+        `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`,
+        `${name}=; Path=/api; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`,
+        `${name}=; Path=/api/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`,
+      ];
+      response.headers.set("Set-Cookie", [...cookieHeader.split(", "), ...newCookies].join(", "));
     });
 
-    console.log("[Logout API] Cookies deleted");
+    console.log("[Logout API] Cookies deletion headers set");
     return response;
   } catch (error) {
     console.error("[Logout API] Error:", error);

@@ -119,7 +119,19 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[Auth] Starting logout process...");
       
-      // 1. 커스텀 로그아웃 API 호출 (서버 측 쿠키 명시적 삭제)
+      // 1. NextAuth signOut 함수 먼저 호출 (NextAuth가 자체적으로 쿠키 처리)
+      try {
+        console.log("[Auth] Calling signOut function...");
+        await signOut({ 
+          redirect: false,
+          callbackUrl: "/"
+        });
+        console.log("[Auth] SignOut function completed");
+      } catch (signOutError) {
+        console.warn("[Auth] SignOut function error:", signOutError);
+      }
+      
+      // 2. 커스텀 로그아웃 API 호출 (서버 측 쿠키 명시적 삭제)
       try {
         console.log("[Auth] Calling custom logout API...");
         const logoutResponse = await fetch("/api/auth/logout", {
@@ -135,7 +147,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.warn("[Auth] Logout API error:", err);
       }
       
-      // 2. NextAuth signout API 호출
+      // 3. NextAuth signout API 호출 (추가 확인)
       try {
         console.log("[Auth] Calling NextAuth signout API...");
         const signoutResponse = await fetch("/api/auth/signout", {
@@ -150,18 +162,6 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.warn("[Auth] Signout API error:", err);
       }
       
-      // 3. NextAuth signOut 함수 호출 (클라이언트 측 세션 정리)
-      try {
-        console.log("[Auth] Calling signOut function...");
-        await signOut({ 
-          redirect: false,
-          callbackUrl: "/"
-        });
-        console.log("[Auth] SignOut function completed");
-      } catch (signOutError) {
-        console.warn("[Auth] SignOut function error:", signOutError);
-      }
-      
       // 4. 로컬 스토리지 및 세션 스토리지 정리
       if (typeof window !== "undefined") {
         console.log("[Auth] Clearing storage...");
@@ -174,11 +174,11 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       // 5. 세션 상태 강제 초기화를 위해 페이지 완전히 새로고침
       console.log("[Auth] Redirecting to home and reloading...");
       if (typeof window !== "undefined") {
-        // 쿠키 삭제가 완료되도록 약간의 지연 후 리다이렉트
+        // 쿠키 삭제가 완료되도록 충분한 지연 후 리다이렉트
         setTimeout(() => {
           // 하드 리다이렉트로 쿠키 상태 완전히 초기화
           window.location.replace("/");
-        }, 500);
+        }, 1000);
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
