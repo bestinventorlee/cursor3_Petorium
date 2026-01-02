@@ -52,29 +52,57 @@ export default function ProfilePage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // 인증 확인 및 리다이렉트 - useSession을 직접 사용하여 더 확실하게 체크
+  // 인증 확인 및 리다이렉트 - 서버 측 세션도 확인
   useEffect(() => {
     // 세션 상태가 로딩 중이면 대기
     if (sessionStatus === "loading" || authLoading) {
       return;
     }
 
-    // 세션이 없거나 사용자가 없으면 즉시 리다이렉트
+    // 세션이 없거나 사용자가 없으면 서버 측에서도 확인
     if (!session || !user) {
-      console.log("[ProfilePage] No session or user found, redirecting to signin");
-      // 쿠키도 확인하여 확실하게 체크
-      const hasSessionCookie = typeof document !== "undefined" && 
-        document.cookie.split(';').some(c => c.trim().startsWith('next-auth.session-token='));
+      console.log("[ProfilePage] No session or user found, checking server-side session...");
       
-      if (!hasSessionCookie) {
-        console.log("[ProfilePage] No session cookie found, forcing redirect");
-        // 쿠키가 없으면 강제로 로그인 페이지로 이동
-        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
-        return;
-      }
-      
-      router.push("/auth/signin?callbackUrl=/profile");
-      router.refresh();
+      // 서버 측 세션 확인
+      fetch("/api/auth/profile", {
+        method: "GET",
+        credentials: "include",
+      })
+        .then((response) => {
+          if (response.status === 401 || response.status === 403) {
+            // 서버 측에서도 인증 실패
+            console.log("[ProfilePage] Server-side authentication failed, redirecting to signin");
+            // 쿠키 확인
+            const hasSessionCookie = typeof document !== "undefined" && 
+              document.cookie.split(';').some(c => c.trim().startsWith('next-auth.session-token='));
+            
+            if (hasSessionCookie) {
+              // 쿠키가 있지만 유효하지 않음 - 강제로 쿠키 삭제 시도
+              console.log("[ProfilePage] Invalid session cookie found, attempting to clear...");
+              fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "include",
+              }).catch(() => {
+                // 무시
+              });
+            }
+            
+            // 강제로 로그인 페이지로 이동
+            window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+          } else if (response.ok) {
+            // 서버 측에서 인증 성공 - 세션을 다시 확인
+            console.log("[ProfilePage] Server-side authentication successful, refreshing session...");
+            router.refresh();
+          } else {
+            // 기타 오류
+            console.log("[ProfilePage] Server-side check failed, redirecting to signin");
+            window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+          }
+        })
+        .catch((error) => {
+          console.error("[ProfilePage] Error checking server-side session:", error);
+          window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        });
       return;
     }
     
@@ -141,7 +169,17 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch("/api/auth/profile");
+      const response = await fetch("/api/auth/profile", {
+        credentials: "include",
+      });
+      
+      if (response.status === 401 || response.status === 403) {
+        // 인증 실패 - 로그인 페이지로 리다이렉트
+        console.log("[ProfilePage] Profile fetch failed: authentication required");
+        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        return;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         setProfile(data);
@@ -151,9 +189,15 @@ export default function ProfilePage() {
           bio: data.bio || "",
           avatar: data.avatar || "",
         });
+      } else {
+        console.error("[ProfilePage] Profile fetch failed:", response.status);
+        // 오류 발생 시 로그인 페이지로 리다이렉트
+        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
+      // 오류 발생 시 로그인 페이지로 리다이렉트
+      window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
     } finally {
       setLoading(false);
     }
