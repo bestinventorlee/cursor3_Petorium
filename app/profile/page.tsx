@@ -54,17 +54,25 @@ export default function ProfilePage() {
 
   // 인증 확인 및 리다이렉트 - useSession을 직접 사용하여 더 확실하게 체크
   useEffect(() => {
-    // 세션 상태가 로딩 중이 아니고, 세션이 없으면 리다이렉트
-    if (sessionStatus !== "loading" && !session) {
-      console.log("[ProfilePage] No session found, redirecting to signin");
-      router.push("/auth/signin?callbackUrl=/profile");
-      router.refresh();
+    // 세션 상태가 로딩 중이면 대기
+    if (sessionStatus === "loading" || authLoading) {
       return;
     }
-    
-    // useAuth의 user와 useSession의 session이 모두 없으면 리다이렉트
-    if (!authLoading && !user && !session) {
-      console.log("[ProfilePage] No user and no session, redirecting to signin");
+
+    // 세션이 없거나 사용자가 없으면 즉시 리다이렉트
+    if (!session || !user) {
+      console.log("[ProfilePage] No session or user found, redirecting to signin");
+      // 쿠키도 확인하여 확실하게 체크
+      const hasSessionCookie = typeof document !== "undefined" && 
+        document.cookie.split(';').some(c => c.trim().startsWith('next-auth.session-token='));
+      
+      if (!hasSessionCookie) {
+        console.log("[ProfilePage] No session cookie found, forcing redirect");
+        // 쿠키가 없으면 강제로 로그인 페이지로 이동
+        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        return;
+      }
+      
       router.push("/auth/signin?callbackUrl=/profile");
       router.refresh();
       return;
@@ -76,10 +84,11 @@ export default function ProfilePage() {
   }, [user, authLoading, session, sessionStatus, router]);
 
   useEffect(() => {
-    if (user) {
+    // 세션이 확인된 후에만 프로필 가져오기
+    if (user && session && sessionStatus === "authenticated") {
       fetchProfile();
     }
-  }, [user]);
+  }, [user, session, sessionStatus]);
 
   const fetchVideos = useCallback(async (pageNum: number = 1) => {
     if (!profile?.username) return;

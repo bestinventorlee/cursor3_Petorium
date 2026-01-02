@@ -10,7 +10,10 @@ export default function BottomNavigation() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+
+  // 로그아웃 상태 확인: 세션이 로딩 중이 아니고, 세션이 없으면 로그아웃 상태
+  const isAuthenticated = sessionStatus !== "loading" && !!session && !!user;
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -78,7 +81,7 @@ export default function BottomNavigation() {
       ),
     },
     {
-      href: (user && session) ? (user.username ? `/user/${user.username}` : "/profile") : "/auth/signin",
+      href: isAuthenticated ? (user.username ? `/user/${user.username}` : "/profile") : "/auth/signin",
       label: "프로필",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,16 +100,17 @@ export default function BottomNavigation() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 md:hidden">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
-          if (item.requireAuth && !user) {
+          if (item.requireAuth && !isAuthenticated) {
             return null;
           }
 
           const active = isActive(item.href);
+          const href = typeof item.href === "function" ? item.href() : item.href;
 
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={href}
+              href={href}
               className="flex flex-col items-center justify-center flex-1 h-full relative"
             >
               <motion.div
