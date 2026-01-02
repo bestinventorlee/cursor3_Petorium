@@ -17,10 +17,25 @@ export default function SignInPage() {
 
   // 로그인 성공 후 세션이 업데이트되면 리다이렉트
   useEffect(() => {
+    // 로그아웃 후 리다이렉트된 경우 세션 상태 강제 초기화
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("logout") === "true") {
+        console.log("[SignIn] Logout redirect detected, preventing auto-login");
+        // 로그아웃 후에는 자동 로그인 방지
+        // 세션을 강제로 무시하고 로그인 페이지에 머물기
+        return;
+      }
+    }
+    
+    // 로그아웃 플래그가 없을 때만 자동 리다이렉트
     if (session?.user && !loading) {
-      // 이미 로그인된 상태면 리다이렉트
-      router.push("/");
-      router.refresh();
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("logout") !== "true") {
+        // 이미 로그인된 상태면 리다이렉트
+        router.push("/");
+        router.refresh();
+      }
     }
   }, [session, router, loading]);
 

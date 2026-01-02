@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <SessionProvider
       refetchInterval={0} // 세션 자동 갱신 비활성화
       refetchOnWindowFocus={false} // 창 포커스 시 세션 갱신 비활성화
+      basePath="/api/auth" // NextAuth API 경로 명시
     >
       <AuthContextProvider>{children}</AuthContextProvider>
     </SessionProvider>
@@ -39,6 +40,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status, update } = useSession();
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (status !== "loading") {
@@ -46,6 +48,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       // 세션이 없으면 명시적으로 로그
       if (status === "unauthenticated") {
         console.log("[AuthContext] User is unauthenticated");
+        setIsLoggingOut(false);
       } else if (status === "authenticated") {
         console.log("[AuthContext] User is authenticated:", session?.user?.id);
       }
@@ -117,6 +120,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     try {
+      setIsLoggingOut(true);
       console.log("[Auth] Starting logout process...");
       
       // 1. 스토리지 먼저 정리
@@ -128,7 +132,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.log("[Auth] Storage cleared");
       }
       
-      // 2. NextAuth signout API를 직접 호출 (가장 확실한 방법)
+      // 2. NextAuth signout API를 먼저 호출 (서버 측 쿠키 삭제가 가장 중요)
       try {
         console.log("[Auth] Calling NextAuth signout API directly...");
         const signoutResponse = await fetch("/api/auth/signout", {
@@ -140,19 +144,39 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         });
         
         console.log("[Auth] Signout API response status:", signoutResponse.status);
+        console.log("[Auth] Signout API response headers:", Object.fromEntries(signoutResponse.headers.entries()));
         
         if (!signoutResponse.ok) {
-          throw new Error(`Signout API failed: ${signoutResponse.status}`);
+          console.warn(`[Auth] Signout API failed: ${signoutResponse.status}`);
+        } else {
+          // 응답 본문 확인
+          try {
+            const responseText = await signoutResponse.text();
+            console.log("[Auth] Signout API response body:", responseText);
+          } catch (e) {
+            console.warn("[Auth] Could not read signout response body");
+          }
         }
-        
-        // 응답 본문 확인
-        const responseText = await signoutResponse.text();
-        console.log("[Auth] Signout API response:", responseText);
       } catch (apiError) {
         console.error("[Auth] Signout API error:", apiError);
       }
       
-      // 3. NextAuth signOut 함수 호출 (클라이언트 측 정리)
+      // 3. 커스텀 로그아웃 API 호출 (추가 쿠키 삭제)
+      try {
+        console.log("[Auth] Calling custom logout API...");
+        const logoutResponse = await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        console.log("[Auth] Custom logout API response:", logoutResponse.status);
+      } catch (err) {
+        console.warn("[Auth] Custom logout API error:", err);
+      }
+      
+      // 4. NextAuth signOut 함수 호출 (클라이언트 측 세션 정리)
       try {
         console.log("[Auth] Calling signOut function...");
         await signOut({ 
@@ -164,34 +188,24 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.error("[Auth] SignOut function error:", signOutError);
       }
       
-      // 4. 커스텀 로그아웃 API 호출 (추가 쿠키 삭제)
-      try {
-        console.log("[Auth] Calling custom logout API...");
-        await fetch("/api/auth/logout", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        console.log("[Auth] Custom logout API called");
-      } catch (err) {
-        console.warn("[Auth] Custom logout API error:", err);
-      }
-      
-      // 5. 강제로 로그인 페이지로 이동 (쿠키 삭제가 완료되도록 약간의 지연)
-      console.log("[Auth] Redirecting to signin page...");
+      // 5. 세션 상태를 강제로 초기화하기 위해 완전히 새로운 페이지 로드
+      console.log("[Auth] Forcing complete page reload...");
       if (typeof window !== "undefined") {
+        // 쿠키 삭제가 완료되도록 충분한 지연 후 완전히 새 페이지 로드
         setTimeout(() => {
-          // 완전히 새로운 페이지 로드를 위해 replace 사용
-          window.location.replace("/auth/signin?logout=true");
-        }, 300);
+          // window.location.replace로 히스토리에서 제거하고 완전히 새 페이지 로드
+          // 쿼리 파라미터로 캐시 방지
+          const timestamp = Date.now();
+          // 완전히 새로운 페이지로 이동하여 세션 상태 초기화
+          window.location.href = `/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`;
+        }, 1000);
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
+      setIsLoggingOut(false);
       // 에러가 발생해도 강제로 로그인 페이지로 이동
       if (typeof window !== "undefined") {
-        window.location.replace("/auth/signin");
+        window.location.replace("/auth/signin?logout=true");
       }
     }
   };
