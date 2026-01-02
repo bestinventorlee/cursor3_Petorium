@@ -177,8 +177,9 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         // 쿠키 삭제가 완료되도록 충분한 지연 후 리다이렉트
         setTimeout(() => {
           // 하드 리다이렉트로 쿠키 상태 완전히 초기화
-          window.location.replace("/");
-        }, 1000);
+          // 쿼리 파라미터를 추가하여 캐시 방지
+          window.location.replace("/?logout=true&t=" + Date.now());
+        }, 1500);
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
