@@ -22,7 +22,17 @@ export default function BottomNavigation() {
     return pathname.startsWith(path);
   };
 
-  const navItems = [
+  // 프로필 링크를 동적으로 생성
+  const getProfileHref = () => {
+    return isAuthenticated ? (user?.username ? `/user/${user.username}` : "/profile") : "/auth/signin";
+  };
+
+  const navItems: Array<{
+    href: string | (() => string);
+    label: string;
+    icon: React.ReactNode;
+    requireAuth?: boolean;
+  }> = [
     {
       href: "/",
       label: "홈",
@@ -81,7 +91,7 @@ export default function BottomNavigation() {
       ),
     },
     {
-      href: isAuthenticated ? (user.username ? `/user/${user.username}` : "/profile") : "/auth/signin",
+      href: getProfileHref,
       label: "프로필",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,8 +114,8 @@ export default function BottomNavigation() {
             return null;
           }
 
-          const active = isActive(item.href);
           const href = typeof item.href === "function" ? item.href() : item.href;
+          const active = isActive(href);
 
           return (
             <Link
