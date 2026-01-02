@@ -25,47 +25,84 @@ export const authOptions: NextAuthOptions = {
         try {
           // 이메일 정규화 (소문자 변환 및 공백 제거)
           const normalizedEmail = credentials.email.trim().toLowerCase();
+          console.log(`[Auth] Attempting login with email: ${normalizedEmail}`);
 
-          const user = await prisma.user.findUnique({
+          // 먼저 정규화된 이메일로 찾기
+          let foundUser = await prisma.user.findUnique({
             where: { email: normalizedEmail },
           });
 
+          // 찾지 못한 경우, 원본 이메일로도 시도 (대소문자 차이 대비)
+          if (!foundUser) {
+            console.log(`[Auth] User not found with normalized email, trying original: ${credentials.email}`);
+            foundUser = await prisma.user.findUnique({
+              where: { email: credentials.email.trim() },
+            });
+          }
+
+          // 여전히 찾지 못한 경우, 모든 사용자를 가져와서 대소문자 무시하고 비교
+          if (!foundUser) {
+            const allUsers = await prisma.user.findMany({
+              where: {
+                email: {
+                  contains: normalizedEmail,
+                },
+              },
+            });
+            
+            // 대소문자 무시하고 매칭되는 사용자 찾기
+            foundUser = allUsers.find(u => u.email.toLowerCase() === normalizedEmail) || null;
+            
+            if (foundUser) {
+              console.log(`[Auth] Found user with case-insensitive match: ${foundUser.email}`);
+            }
+          }
+
           // 사용자가 존재하지 않는 경우
-          if (!user) {
+          if (!foundUser) {
             console.error(`[Auth] User not found: ${normalizedEmail}`);
+            // 디버깅: 데이터베이스에 있는 이메일 확인
+            const allUsers = await prisma.user.findMany({
+              select: { email: true },
+              take: 5,
+            });
+            console.log(`[Auth] Sample emails in DB:`, allUsers.map(u => u.email));
             throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
           }
 
           // 소셜 로그인으로 가입한 사용자 (비밀번호가 없는 경우)
-          if (!user.password) {
+          if (!foundUser.password) {
             console.error(`[Auth] User exists but no password (social login): ${normalizedEmail}`);
             throw new Error("이 계정은 소셜 로그인으로 가입되었습니다. 소셜 로그인을 사용해주세요");
           }
 
           // 차단된 사용자 확인
-          if (user.isBanned) {
+          if (foundUser.isBanned) {
             console.error(`[Auth] Banned user attempted login: ${normalizedEmail}`);
             throw new Error("차단된 계정입니다");
           }
 
+          console.log(`[Auth] Found user: ${foundUser.email} (${foundUser.username}), comparing password...`);
+          
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
-            user.password
+            foundUser.password
           );
 
           if (!isPasswordValid) {
             console.error(`[Auth] Invalid password for user: ${normalizedEmail}`);
+            console.error(`[Auth] Password hash in DB: ${foundUser.password.substring(0, 20)}...`);
             throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
           }
 
-          console.log(`[Auth] Successful login: ${normalizedEmail} (${user.username})`);
+          console.log(`[Auth] Successful login: ${normalizedEmail} (${foundUser.username})`);
 
           return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            username: user.username,
-            image: user.avatar,
+            id: foundUser.id,
+            email: foundUser.email,
+            name: foundUser.name,
+            username: foundUser.username,
+            image: foundUser.avatar,
           };
         } catch (error: any) {
           // 이미 에러 메시지가 있는 경우 그대로 전달

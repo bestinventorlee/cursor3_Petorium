@@ -14,10 +14,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 이메일 정규화 (소문자 변환 및 공백 제거)
+    const normalizedEmail = email.trim().toLowerCase();
+
     // 이메일 중복 확인
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email }, { username }],
+        OR: [{ email: normalizedEmail }, { username }],
       },
     });
 
@@ -28,13 +31,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 비밀번호 해시
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 비밀번호 해시 (salt rounds 12로 통일)
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // 사용자 생성
+    // 사용자 생성 (정규화된 이메일 저장)
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         username,
         name: name || null,
         password: hashedPassword,
