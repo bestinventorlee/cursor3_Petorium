@@ -132,9 +132,9 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.log("[Auth] Storage cleared");
       }
       
-      // 2. NextAuth signout API를 먼저 호출 (서버 측 쿠키 삭제가 가장 중요)
+      // 2. 커스텀 signout API 호출 (서버 측 쿠키 삭제가 가장 중요)
       try {
-        console.log("[Auth] Calling NextAuth signout API directly...");
+        console.log("[Auth] Calling custom signout API...");
         const signoutResponse = await fetch("/api/auth/signout", {
           method: "POST",
           credentials: "include",
@@ -144,21 +144,29 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         });
         
         console.log("[Auth] Signout API response status:", signoutResponse.status);
-        console.log("[Auth] Signout API response headers:", Object.fromEntries(signoutResponse.headers.entries()));
+        
+        // Set-Cookie 헤더 확인
+        const setCookieHeaders = signoutResponse.headers.getSetCookie();
+        console.log("[Auth] Signout API Set-Cookie headers:", setCookieHeaders.length);
         
         if (!signoutResponse.ok) {
           console.warn(`[Auth] Signout API failed: ${signoutResponse.status}`);
-        } else {
-          // 응답 본문 확인
-          try {
-            const responseText = await signoutResponse.text();
-            console.log("[Auth] Signout API response body:", responseText);
-          } catch (e) {
-            console.warn("[Auth] Could not read signout response body");
-          }
         }
       } catch (apiError) {
         console.error("[Auth] Signout API error:", apiError);
+      }
+      
+      // 2-1. NextAuth의 기본 signout API도 호출 (이중 확인)
+      try {
+        console.log("[Auth] Calling NextAuth default signout...");
+        await fetch("/api/auth/signout", {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {
+          // NextAuth의 기본 signout이 없을 수도 있음
+        });
+      } catch (err) {
+        // 무시
       }
       
       // 3. 커스텀 로그아웃 API 호출 (추가 쿠키 삭제)
