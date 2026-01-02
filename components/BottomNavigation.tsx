@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -9,6 +10,7 @@ export default function BottomNavigation() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
+  const { data: session } = useSession();
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -76,7 +78,7 @@ export default function BottomNavigation() {
       ),
     },
     {
-      href: user ? (user.username ? `/user/${user.username}` : "/profile") : "/auth/signin",
+      href: (user && session) ? (user.username ? `/user/${user.username}` : "/profile") : "/auth/signin",
       label: "프로필",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -119,30 +119,48 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[Auth] Starting logout process...");
       
-      // 1. NextAuth signOut 호출
-      await signOut({ 
-        redirect: false,
-        callbackUrl: "/"
-      });
-      
-      // 2. 세션 API를 직접 호출하여 세션 완전히 제거
-      try {
-        const response = await fetch("/api/auth/session", {
-          method: "DELETE",
-        });
-        console.log("[Auth] Session deletion response:", response.status);
-      } catch (err) {
-        console.warn("[Auth] Session deletion API not available, continuing...");
-      }
-      
-      // 3. CSRF 토큰 제거
+      // 1. CSRF 토큰 제거 (먼저 제거)
       if (typeof window !== "undefined") {
         localStorage.removeItem("csrf-token");
         sessionStorage.clear();
       }
       
+      // 2. NextAuth signOut 호출
+      const signOutResult = await signOut({ 
+        redirect: false,
+        callbackUrl: "/"
+      });
+      console.log("[Auth] SignOut result:", signOutResult);
+      
+      // 3. 세션 API를 직접 호출하여 세션 완전히 제거 확인
+      try {
+        const sessionResponse = await fetch("/api/auth/session", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const sessionData = await sessionResponse.json();
+        console.log("[Auth] Session after logout:", sessionData);
+        
+        // 세션이 여전히 존재하면 강제로 제거
+        if (sessionData?.user) {
+          console.warn("[Auth] Session still exists after signOut, forcing removal");
+          // 쿠키 직접 삭제 시도
+          document.cookie.split(";").forEach((c) => {
+            const name = c.trim().split("=")[0];
+            if (name.startsWith("next-auth")) {
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("[Auth] Session check error:", err);
+      }
+      
       // 4. 강제로 페이지 새로고침하여 모든 상태 초기화
-      window.location.href = "/";
+      // 약간의 지연을 두어 쿠키 삭제가 완료되도록 함
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     } catch (error) {
       console.error("[Auth] Logout error:", error);
       // 에러가 발생해도 강제로 홈으로 이동

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Image from "next/image";
 import VideoGrid from "@/components/VideoGrid";
@@ -32,6 +33,7 @@ interface Video {
 
 export default function ProfilePage() {
   const { user, loading: authLoading, logout } = useAuth();
+  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -50,18 +52,28 @@ export default function ProfilePage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // 인증 확인 및 리다이렉트
+  // 인증 확인 및 리다이렉트 - useSession을 직접 사용하여 더 확실하게 체크
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        console.log("[ProfilePage] No user found, redirecting to signin");
-        router.push("/auth/signin?callbackUrl=/profile");
-        router.refresh();
-      } else {
-        console.log("[ProfilePage] User authenticated:", user.id);
-      }
+    // 세션 상태가 로딩 중이 아니고, 세션이 없으면 리다이렉트
+    if (sessionStatus !== "loading" && !session) {
+      console.log("[ProfilePage] No session found, redirecting to signin");
+      router.push("/auth/signin?callbackUrl=/profile");
+      router.refresh();
+      return;
     }
-  }, [user, authLoading, router]);
+    
+    // useAuth의 user와 useSession의 session이 모두 없으면 리다이렉트
+    if (!authLoading && !user && !session) {
+      console.log("[ProfilePage] No user and no session, redirecting to signin");
+      router.push("/auth/signin?callbackUrl=/profile");
+      router.refresh();
+      return;
+    }
+    
+    if (session) {
+      console.log("[ProfilePage] Session found:", session.user?.id);
+    }
+  }, [user, authLoading, session, sessionStatus, router]);
 
   useEffect(() => {
     if (user) {
@@ -180,7 +192,7 @@ export default function ProfilePage() {
     setHasMore(true);
   };
 
-  if (authLoading || loading) {
+  if (authLoading || loading || sessionStatus === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -188,7 +200,8 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
+  // 세션이 없거나 사용자가 없으면 리다이렉트 중
+  if (!user && !session) {
     return null; // 리다이렉트 중
   }
 
