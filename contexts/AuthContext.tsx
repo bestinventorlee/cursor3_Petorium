@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSession, signIn, signOut, SessionProvider } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 
 interface User {
   id: string;
@@ -75,9 +76,9 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     name?: string
   ) => {
     try {
-      const response = await fetch("/api/auth/register", {
+      // apiFetch를 사용하여 CSRF 토큰 자동 포함
+      const response = await apiFetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, username, password, name }),
       });
 
@@ -100,6 +101,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
 
       return {};
     } catch (error) {
+      console.error("[Auth] Sign up error:", error);
       return { error: "회원가입 중 오류가 발생했습니다" };
     }
   };
