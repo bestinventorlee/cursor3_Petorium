@@ -52,64 +52,48 @@ export default function ProfilePage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // 인증 확인 및 리다이렉트 - 서버 측 세션도 확인
+  // 인증 확인 및 리다이렉트 - 즉시 체크하고 쿠키도 확인
   useEffect(() => {
+    // 쿠키 확인 (가장 먼저)
+    const hasSessionCookie = typeof document !== "undefined" && 
+      document.cookie.split(';').some(c => c.trim().startsWith('next-auth.session-token='));
+    
     // 세션 상태가 로딩 중이면 대기
     if (sessionStatus === "loading" || authLoading) {
+      // 로딩 중이지만 쿠키가 없으면 즉시 리다이렉트
+      if (!hasSessionCookie && sessionStatus !== "loading") {
+        console.log("[ProfilePage] No session cookie during loading, redirecting...");
+        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        return;
+      }
       return;
     }
 
-    // 세션이 없거나 사용자가 없으면 서버 측에서도 확인
+    // 세션이 없거나 사용자가 없으면 즉시 리다이렉트
     if (!session || !user) {
-      console.log("[ProfilePage] No session or user found, checking server-side session...");
+      console.log("[ProfilePage] No session or user found, redirecting immediately");
       
-      // 서버 측 세션 확인
-      fetch("/api/auth/profile", {
-        method: "GET",
-        credentials: "include",
-      })
-        .then((response) => {
-          if (response.status === 401 || response.status === 403) {
-            // 서버 측에서도 인증 실패
-            console.log("[ProfilePage] Server-side authentication failed, redirecting to signin");
-            // 쿠키 확인
-            const hasSessionCookie = typeof document !== "undefined" && 
-              document.cookie.split(';').some(c => c.trim().startsWith('next-auth.session-token='));
-            
-            if (hasSessionCookie) {
-              // 쿠키가 있지만 유효하지 않음 - 강제로 쿠키 삭제 시도
-              console.log("[ProfilePage] Invalid session cookie found, attempting to clear...");
-              fetch("/api/auth/logout", {
-                method: "POST",
-                credentials: "include",
-              }).catch(() => {
-                // 무시
-              });
-            }
-            
-            // 강제로 로그인 페이지로 이동
-            window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
-          } else if (response.ok) {
-            // 서버 측에서 인증 성공 - 세션을 다시 확인
-            console.log("[ProfilePage] Server-side authentication successful, refreshing session...");
-            router.refresh();
-          } else {
-            // 기타 오류
-            console.log("[ProfilePage] Server-side check failed, redirecting to signin");
-            window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
-          }
-        })
-        .catch((error) => {
-          console.error("[ProfilePage] Error checking server-side session:", error);
-          window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+      // 쿠키가 있으면 삭제 시도
+      if (hasSessionCookie) {
+        console.log("[ProfilePage] Session cookie exists but no session, clearing cookie...");
+        fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {
+          // 무시
         });
+      }
+      
+      // 즉시 로그인 페이지로 이동 (서버 측 확인 없이)
+      window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
       return;
     }
     
-    if (session) {
-      console.log("[ProfilePage] Session found:", session.user?.id);
+    // 세션과 사용자가 모두 있으면 정상
+    if (session && user) {
+      console.log("[ProfilePage] Session and user found:", session.user?.id);
     }
-  }, [user, authLoading, session, sessionStatus, router]);
+  }, [user, authLoading, session, sessionStatus]);
 
   useEffect(() => {
     // 세션이 확인된 후에만 프로필 가져오기
@@ -168,15 +152,29 @@ export default function ProfilePage() {
   }, [profile, activeTab, fetchVideos]);
 
   const fetchProfile = async () => {
+    // 세션과 사용자가 없으면 API 호출하지 않음
+    if (!session || !user) {
+      console.log("[ProfilePage] Cannot fetch profile: no session or user");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/auth/profile", {
         credentials: "include",
       });
       
       if (response.status === 401 || response.status === 403) {
-        // 인증 실패 - 로그인 페이지로 리다이렉트
+        // 인증 실패 - 쿠키 삭제 후 로그인 페이지로 리다이렉트
         console.log("[ProfilePage] Profile fetch failed: authentication required");
-        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        // 쿠키 삭제 시도
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {
+          // 무시
+        });
+        window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
         return;
       }
       
@@ -192,12 +190,12 @@ export default function ProfilePage() {
       } else {
         console.error("[ProfilePage] Profile fetch failed:", response.status);
         // 오류 발생 시 로그인 페이지로 리다이렉트
-        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
       // 오류 발생 시 로그인 페이지로 리다이렉트
-      window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+      window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
     } finally {
       setLoading(false);
     }

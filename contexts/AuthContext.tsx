@@ -196,7 +196,25 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.error("[Auth] SignOut function error:", signOutError);
       }
       
-      // 5. 세션 상태를 강제로 초기화하기 위해 완전히 새로운 페이지 로드
+      // 5. 쿠키를 직접 삭제 시도 (클라이언트 측)
+      if (typeof document !== "undefined") {
+        console.log("[Auth] Attempting to delete cookies directly...");
+        const cookieNames = [
+          "next-auth.session-token",
+          "next-auth.csrf-token",
+          "next-auth.callback-url",
+        ];
+        
+        cookieNames.forEach((name) => {
+          // 여러 경로에서 쿠키 삭제 시도
+          document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0`;
+          document.cookie = `${name}=; Path=/api; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0`;
+          document.cookie = `${name}=; Path=/api/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0`;
+        });
+        console.log("[Auth] Direct cookie deletion attempted");
+      }
+
+      // 6. 세션 상태를 강제로 초기화하기 위해 완전히 새로운 페이지 로드
       console.log("[Auth] Forcing complete page reload...");
       if (typeof window !== "undefined") {
         // 쿠키 삭제가 완료되도록 충분한 지연 후 완전히 새 페이지 로드
@@ -207,7 +225,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
           // 완전히 새로운 페이지로 이동하여 세션 상태 초기화
           // 로그아웃 플래그를 명확히 전달
           window.location.replace(`/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`);
-        }, 1500);
+        }, 2000); // 지연 시간 증가
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);

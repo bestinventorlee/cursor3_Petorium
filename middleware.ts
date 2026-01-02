@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { rateLimit } from "./lib/rate-limit";
 import { validateCSRF } from "./lib/csrf";
+import { getToken } from "next-auth/jwt";
 
 // Rate limit configuration per route
 const rateLimitConfigs: Record<string, { windowMs: number; maxRequests: number }> = {
@@ -15,6 +16,22 @@ const rateLimitConfigs: Record<string, { windowMs: number; maxRequests: number }
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // 프로필 페이지 접근 시 세션 확인
+  if (pathname === "/profile") {
+    const token = await getToken({ 
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    if (!token) {
+      // 세션이 없으면 로그인 페이지로 리다이렉트
+      const signInUrl = new URL("/auth/signin", request.url);
+      signInUrl.searchParams.set("callbackUrl", "/profile");
+      signInUrl.searchParams.set("logout", "true");
+      return NextResponse.redirect(signInUrl);
+    }
+  }
 
   // Apply rate limiting to API routes
   if (pathname.startsWith("/api/")) {
@@ -98,6 +115,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/api/:path*",
+    "/profile",
     // Add other routes that need middleware
   ],
 };
