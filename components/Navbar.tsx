@@ -102,11 +102,26 @@ export default function Navbar() {
                           sessionStorage.clear();
                         }
                         
-                        // NextAuth signOut 호출 (redirect: true로 자동 리다이렉트)
+                        // 1. NextAuth signout API 직접 호출
+                        try {
+                          await fetch("/api/auth/signout", {
+                            method: "POST",
+                            credentials: "include",
+                          });
+                        } catch (err) {
+                          console.warn("[Navbar] Signout API error:", err);
+                        }
+                        
+                        // 2. NextAuth signOut 함수 호출
                         await signOut({ 
-                          redirect: true,
+                          redirect: false,
                           callbackUrl: "/auth/signin"
                         });
+                        
+                        // 3. 강제로 로그인 페이지로 이동
+                        setTimeout(() => {
+                          window.location.replace("/auth/signin");
+                        }, 300);
                       } catch (error) {
                         console.error("Logout error:", error);
                         // 에러 발생 시에도 로그인 페이지로 이동
