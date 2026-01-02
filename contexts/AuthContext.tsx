@@ -119,50 +119,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[Auth] Starting logout process...");
       
-      // 1. NextAuth signOut 함수 먼저 호출 (NextAuth가 자체적으로 쿠키 처리)
-      try {
-        console.log("[Auth] Calling signOut function...");
-        await signOut({ 
-          redirect: false,
-          callbackUrl: "/"
-        });
-        console.log("[Auth] SignOut function completed");
-      } catch (signOutError) {
-        console.warn("[Auth] SignOut function error:", signOutError);
-      }
-      
-      // 2. 커스텀 로그아웃 API 호출 (서버 측 쿠키 명시적 삭제)
-      try {
-        console.log("[Auth] Calling custom logout API...");
-        const logoutResponse = await fetch("/api/auth/logout", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        const logoutData = await logoutResponse.json();
-        console.log("[Auth] Logout API response:", logoutResponse.status, logoutData);
-      } catch (err) {
-        console.warn("[Auth] Logout API error:", err);
-      }
-      
-      // 3. NextAuth signout API 호출 (추가 확인)
-      try {
-        console.log("[Auth] Calling NextAuth signout API...");
-        const signoutResponse = await fetch("/api/auth/signout", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        console.log("[Auth] Signout API response status:", signoutResponse.status);
-      } catch (err) {
-        console.warn("[Auth] Signout API error:", err);
-      }
-      
-      // 4. 로컬 스토리지 및 세션 스토리지 정리
+      // 1. 스토리지 먼저 정리
       if (typeof window !== "undefined") {
         console.log("[Auth] Clearing storage...");
         localStorage.removeItem("csrf-token");
@@ -171,21 +128,30 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.log("[Auth] Storage cleared");
       }
       
-      // 5. 세션 상태 강제 초기화를 위해 페이지 완전히 새로고침
-      console.log("[Auth] Redirecting to home and reloading...");
-      if (typeof window !== "undefined") {
-        // 쿠키 삭제가 완료되도록 충분한 지연 후 리다이렉트
-        setTimeout(() => {
-          // 하드 리다이렉트로 쿠키 상태 완전히 초기화
-          // 쿼리 파라미터를 추가하여 캐시 방지
-          window.location.replace("/?logout=true&t=" + Date.now());
-        }, 1500);
+      // 2. NextAuth signOut 함수 호출 (가장 중요)
+      try {
+        console.log("[Auth] Calling signOut function...");
+        // redirect: true로 설정하여 NextAuth가 자동으로 리다이렉트 처리하도록 함
+        await signOut({ 
+          redirect: true,
+          callbackUrl: "/auth/signin"
+        });
+        console.log("[Auth] SignOut completed, redirecting...");
+        // signOut이 redirect: true일 때는 여기 도달하지 않음
+        return;
+      } catch (signOutError) {
+        console.error("[Auth] SignOut function error:", signOutError);
+        // 에러 발생 시에도 로그인 페이지로 이동
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth/signin";
+        }
+        return;
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
-      // 에러가 발생해도 강제로 홈으로 이동
+      // 에러가 발생해도 강제로 로그인 페이지로 이동
       if (typeof window !== "undefined") {
-        window.location.replace("/");
+        window.location.href = "/auth/signin";
       }
     }
   };

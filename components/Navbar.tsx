@@ -96,42 +96,21 @@ export default function Navbar() {
                       try {
                         console.log("[Navbar] Logging out...");
                         
-                        // 1. NextAuth signout API 호출
-                        try {
-                          await fetch("/api/auth/signout", {
-                            method: "POST",
-                            credentials: "include",
-                          });
-                        } catch (err) {
-                          console.warn("[Navbar] Signout API error:", err);
-                        }
-                        
-                        // 2. signOut 함수 호출
-                        await signOut({ redirect: false });
-                        
-                        // 3. 쿠키 직접 삭제
+                        // 스토리지 정리
                         if (typeof window !== "undefined") {
-                          const cookies = document.cookie.split(";");
-                          cookies.forEach((cookie) => {
-                            const name = cookie.trim().split("=")[0];
-                            if (name.startsWith("next-auth") || name.includes("session")) {
-                              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
-                              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname};`;
-                            }
-                          });
                           localStorage.clear();
                           sessionStorage.clear();
                         }
                         
-                        // 4. 강제로 페이지 새로고침
-                        setTimeout(() => {
-                          window.location.href = "/";
-                          window.location.reload();
-                        }, 200);
+                        // NextAuth signOut 호출 (redirect: true로 자동 리다이렉트)
+                        await signOut({ 
+                          redirect: true,
+                          callbackUrl: "/auth/signin"
+                        });
                       } catch (error) {
                         console.error("Logout error:", error);
-                        window.location.href = "/";
-                        window.location.reload();
+                        // 에러 발생 시에도 로그인 페이지로 이동
+                        window.location.href = "/auth/signin";
                       }
                     }
                   }}
