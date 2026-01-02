@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
@@ -9,9 +10,12 @@ export default function Navbar() {
   const { data: session, status } = useSession();
 
   // 세션 상태 로깅 (디버깅용)
-  if (typeof window !== "undefined") {
-    console.log("[Navbar] Session status:", status, "Session:", session?.user?.id);
-  }
+  useEffect(() => {
+    console.log("[Navbar] Session status:", status);
+    console.log("[Navbar] Session data:", session);
+    console.log("[Navbar] User:", session?.user);
+    console.log("[Navbar] Should show logout button:", status === "authenticated" && !!session);
+  }, [status, session]);
 
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 hidden md:block">
@@ -53,35 +57,41 @@ export default function Navbar() {
               </Link>
             )}
 
+            {/* 세션 상태에 따른 버튼 표시 */}
             {status === "loading" ? (
-              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            ) : session ? (
-              <>
-                <Link
-                  href={session.user?.username ? `/user/${session.user.username}` : `/user/${session.user.email?.split("@")[0]}`}
-                  className="flex items-center space-x-2 hover:opacity-80 transition whitespace-nowrap"
-                >
-                  {session.user.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt={session.user.name || "User"}
-                      width={32}
-                      height={32}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-medium">
-                        {session.user.name?.[0] || session.user.email?.[0] || "U"}
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-gray-700 dark:text-gray-300 hidden lg:inline">
-                    {session.user.name || session.user.email}
-                  </span>
-                </Link>
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            ) : status === "authenticated" && session ? (
+              <div className="flex items-center gap-3">
+                {session.user && (
+                  <Link
+                    href={session.user?.username ? `/user/${session.user.username}` : `/user/${session.user.email?.split("@")[0]}`}
+                    className="flex items-center space-x-2 hover:opacity-80 transition whitespace-nowrap"
+                  >
+                    {session.user.image ? (
+                      <Image
+                        src={session.user.image}
+                        alt={session.user.name || "User"}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-medium">
+                          {session.user.name?.[0] || session.user.email?.[0] || "U"}
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-gray-700 dark:text-gray-300 hidden lg:inline">
+                      {session.user.name || session.user.email}
+                    </span>
+                  </Link>
+                )}
                 <button
-                  onClick={async () => {
+                  type="button"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (confirm("정말 로그아웃하시겠습니까?")) {
                       try {
                         console.log("[Navbar] Logging out...");
@@ -107,12 +117,14 @@ export default function Navbar() {
                     }
                   }}
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition whitespace-nowrap flex-shrink-0"
+                  style={{ minWidth: "80px", display: "inline-block" }}
                 >
                   로그아웃
                 </button>
-              </>
+              </div>
             ) : (
               <button
+                type="button"
                 onClick={() => signIn()}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition whitespace-nowrap flex-shrink-0"
               >

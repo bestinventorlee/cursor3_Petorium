@@ -211,13 +211,13 @@ export default function ProfilePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           {/* 프로필 헤더 */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
               <h1 className="text-2xl font-bold">내 프로필</h1>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {activeTab === "settings" && (
                   <button
                     onClick={() => setEditing(!editing)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
                   >
                     {editing ? "취소" : "편집"}
                   </button>
@@ -228,8 +228,7 @@ export default function ProfilePage() {
                       try {
                         console.log("[ProfilePage] Logging out...");
                         await logout();
-                        // 로그아웃 후 강제로 페이지 새로고침
-                        window.location.href = "/";
+                        // logout 함수 내부에서 이미 리다이렉트 처리됨
                       } catch (error) {
                         console.error("Logout error:", error);
                         // 에러가 발생해도 강제로 홈으로 이동
@@ -237,7 +236,7 @@ export default function ProfilePage() {
                       }
                     }
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm"
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm whitespace-nowrap"
                 >
                   로그아웃
                 </button>

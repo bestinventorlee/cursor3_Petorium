@@ -119,52 +119,60 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[Auth] Starting logout process...");
       
-      // 1. CSRF 토큰 제거 (먼저 제거)
+      // 1. 모든 쿠키 직접 삭제 (먼저 실행)
       if (typeof window !== "undefined") {
+        // 모든 next-auth 관련 쿠키 삭제
+        const cookies = document.cookie.split(";");
+        cookies.forEach((cookie) => {
+          const name = cookie.trim().split("=")[0];
+          if (name.startsWith("next-auth") || name.includes("session")) {
+            // 여러 경로와 도메인으로 시도
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname};`;
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=.${window.location.hostname};`;
+          }
+        });
+        
+        // 로컬 스토리지 및 세션 스토리지 정리
         localStorage.removeItem("csrf-token");
+        localStorage.clear();
         sessionStorage.clear();
       }
       
       // 2. NextAuth signOut 호출
-      const signOutResult = await signOut({ 
-        redirect: false,
-        callbackUrl: "/"
-      });
-      console.log("[Auth] SignOut result:", signOutResult);
-      
-      // 3. 세션 API를 직접 호출하여 세션 완전히 제거 확인
       try {
-        const sessionResponse = await fetch("/api/auth/session", {
-          method: "GET",
-          cache: "no-store",
+        await signOut({ 
+          redirect: false,
+          callbackUrl: "/"
         });
-        const sessionData = await sessionResponse.json();
-        console.log("[Auth] Session after logout:", sessionData);
-        
-        // 세션이 여전히 존재하면 강제로 제거
-        if (sessionData?.user) {
-          console.warn("[Auth] Session still exists after signOut, forcing removal");
-          // 쿠키 직접 삭제 시도
-          document.cookie.split(";").forEach((c) => {
-            const name = c.trim().split("=")[0];
-            if (name.startsWith("next-auth")) {
-              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
-            }
-          });
-        }
+        console.log("[Auth] SignOut completed");
+      } catch (signOutError) {
+        console.warn("[Auth] SignOut error (continuing anyway):", signOutError);
+      }
+      
+      // 3. 세션 API를 직접 호출하여 세션 제거 시도
+      try {
+        await fetch("/api/auth/signout", {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {
+          // API가 없어도 계속 진행
+        });
       } catch (err) {
-        console.warn("[Auth] Session check error:", err);
+        console.warn("[Auth] Signout API error:", err);
       }
       
       // 4. 강제로 페이지 새로고침하여 모든 상태 초기화
-      // 약간의 지연을 두어 쿠키 삭제가 완료되도록 함
-      setTimeout(() => {
+      // 즉시 실행하여 세션 상태를 초기화
+      if (typeof window !== "undefined") {
         window.location.href = "/";
-      }, 100);
+      }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
       // 에러가 발생해도 강제로 홈으로 이동
-      window.location.href = "/";
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     }
   };
 
