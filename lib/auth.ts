@@ -22,35 +22,62 @@ export const authOptions: NextAuthOptions = {
           throw new Error("이메일과 비밀번호를 입력해주세요");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        try {
+          // 이메일 정규화 (소문자 변환 및 공백 제거)
+          const normalizedEmail = credentials.email.trim().toLowerCase();
 
-        if (!user || !user.password) {
-          throw new Error("사용자를 찾을 수 없습니다");
+          const user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+          });
+
+          // 사용자가 존재하지 않는 경우
+          if (!user) {
+            console.error(`[Auth] User not found: ${normalizedEmail}`);
+            throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
+          }
+
+          // 소셜 로그인으로 가입한 사용자 (비밀번호가 없는 경우)
+          if (!user.password) {
+            console.error(`[Auth] User exists but no password (social login): ${normalizedEmail}`);
+            throw new Error("이 계정은 소셜 로그인으로 가입되었습니다. 소셜 로그인을 사용해주세요");
+          }
+
+          // 차단된 사용자 확인
+          if (user.isBanned) {
+            console.error(`[Auth] Banned user attempted login: ${normalizedEmail}`);
+            throw new Error("차단된 계정입니다");
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            console.error(`[Auth] Invalid password for user: ${normalizedEmail}`);
+            throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
+          }
+
+          console.log(`[Auth] Successful login: ${normalizedEmail} (${user.username})`);
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            username: user.username,
+            image: user.avatar,
+          };
+        } catch (error: any) {
+          // 이미 에러 메시지가 있는 경우 그대로 전달
+          if (error.message && error.message.startsWith("이메일") || 
+              error.message && error.message.startsWith("이 계정") ||
+              error.message && error.message.startsWith("차단된")) {
+            throw error;
+          }
+          // 기타 에러는 로그하고 일반적인 에러 메시지 반환
+          console.error("[Auth] Unexpected error during authorization:", error);
+          throw new Error("로그인 중 오류가 발생했습니다");
         }
-
-        // 차단된 사용자 확인
-        if (user.isBanned) {
-          throw new Error("차단된 계정입니다");
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("비밀번호가 올바르지 않습니다");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-          image: user.avatar,
-        };
       },
     }),
     GoogleProvider({
