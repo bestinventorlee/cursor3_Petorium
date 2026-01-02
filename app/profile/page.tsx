@@ -31,7 +31,7 @@ interface Video {
 }
 
 export default function ProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -391,6 +391,20 @@ export default function ProfilePage() {
                     <p className="text-gray-600 dark:text-gray-400">
                       {profile?.email}
                     </p>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={async () => {
+                        if (confirm("정말 로그아웃하시겠습니까?")) {
+                          await logout();
+                          router.push("/");
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                    >
+                      로그아웃
+                    </button>
                   </div>
                 </div>
               )}
