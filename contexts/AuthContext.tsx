@@ -51,12 +51,20 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (result?.error) {
+        console.error("[Auth] Sign in error:", result.error);
         return { error: result.error };
       }
 
+      if (!result?.ok) {
+        console.error("[Auth] Sign in failed:", result);
+        return { error: "로그인에 실패했습니다" };
+      }
+
+      console.log("[Auth] Sign in successful");
       return {};
-    } catch (error) {
-      return { error: "로그인 중 오류가 발생했습니다" };
+    } catch (error: any) {
+      console.error("[Auth] Sign in exception:", error);
+      return { error: error?.message || "로그인 중 오류가 발생했습니다" };
     }
   };
 

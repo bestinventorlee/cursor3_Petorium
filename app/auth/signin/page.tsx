@@ -17,11 +17,12 @@ export default function SignInPage() {
 
   // 로그인 성공 후 세션이 업데이트되면 리다이렉트
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user && !loading) {
+      // 이미 로그인된 상태면 리다이렉트
       router.push("/");
       router.refresh();
     }
-  }, [session, router]);
+  }, [session, router, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,18 +44,37 @@ export default function SignInPage() {
     }
 
     try {
-      const result = await authSignIn(email, password);
+      // 타임아웃 설정 (10초)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("로그인 요청 시간이 초과되었습니다")), 10000);
+      });
+
+      const loginPromise = authSignIn(email, password);
+      const result = await Promise.race([loginPromise, timeoutPromise]) as any;
 
       if (result?.error) {
         setError(result.error);
         setLoading(false);
-      } else {
-        // 세션 업데이트
-        await update();
-        // useEffect에서 세션이 업데이트되면 자동으로 리다이렉트됨
+        return;
       }
-    } catch (err) {
-      setError("로그인 중 오류가 발생했습니다");
+
+      // 로그인 성공 - 세션 업데이트 시도
+      try {
+        await update();
+      } catch (updateError) {
+        console.error("Session update error:", updateError);
+        // 업데이트 실패해도 계속 진행
+      }
+
+      // 세션 업데이트 후 리다이렉트
+      // 세션이 반영될 시간을 주기 위해 약간의 지연
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 300);
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err?.message || "로그인 중 오류가 발생했습니다");
       setLoading(false);
     }
   };
