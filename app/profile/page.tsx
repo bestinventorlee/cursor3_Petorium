@@ -52,8 +52,14 @@ export default function ProfilePage() {
 
   // 인증 확인 및 리다이렉트
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/auth/signin?callbackUrl=/profile");
+    if (!authLoading) {
+      if (!user) {
+        console.log("[ProfilePage] No user found, redirecting to signin");
+        router.push("/auth/signin?callbackUrl=/profile");
+        router.refresh();
+      } else {
+        console.log("[ProfilePage] User authenticated:", user.id);
+      }
     }
   }, [user, authLoading, router]);
 
@@ -194,14 +200,35 @@ export default function ProfilePage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold">내 프로필</h1>
-              {activeTab === "settings" && (
+              <div className="flex items-center gap-2">
+                {activeTab === "settings" && (
+                  <button
+                    onClick={() => setEditing(!editing)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {editing ? "취소" : "편집"}
+                  </button>
+                )}
                 <button
-                  onClick={() => setEditing(!editing)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  onClick={async () => {
+                    if (confirm("정말 로그아웃하시겠습니까?")) {
+                      try {
+                        console.log("[ProfilePage] Logging out...");
+                        await logout();
+                        // 로그아웃 후 강제로 페이지 새로고침
+                        window.location.href = "/";
+                      } catch (error) {
+                        console.error("Logout error:", error);
+                        // 에러가 발생해도 강제로 홈으로 이동
+                        window.location.href = "/";
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm"
                 >
-                  {editing ? "취소" : "편집"}
+                  로그아웃
                 </button>
-              )}
+              </div>
             </div>
 
             {/* 프로필 정보 */}
@@ -258,8 +285,8 @@ export default function ProfilePage() {
           </div>
 
           {/* 탭 네비게이션 */}
-          <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-            <nav className="flex space-x-8">
+          <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
+            <nav className="flex space-x-4 md:space-x-8 min-w-max">
               <button
                 onClick={() => handleTabChange("videos")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition ${

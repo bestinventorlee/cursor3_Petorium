@@ -43,8 +43,14 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status !== "loading") {
       setLoading(false);
+      // 세션이 없으면 명시적으로 로그
+      if (status === "unauthenticated") {
+        console.log("[AuthContext] User is unauthenticated");
+      } else if (status === "authenticated") {
+        console.log("[AuthContext] User is authenticated:", session?.user?.id);
+      }
     }
-  }, [status]);
+  }, [status, session]);
 
   const handleSignIn = async (email: string, password: string) => {
     try {
@@ -110,8 +116,38 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
-    router.push("/");
+    try {
+      console.log("[Auth] Starting logout process...");
+      
+      // 1. NextAuth signOut 호출
+      await signOut({ 
+        redirect: false,
+        callbackUrl: "/"
+      });
+      
+      // 2. 세션 API를 직접 호출하여 세션 완전히 제거
+      try {
+        const response = await fetch("/api/auth/session", {
+          method: "DELETE",
+        });
+        console.log("[Auth] Session deletion response:", response.status);
+      } catch (err) {
+        console.warn("[Auth] Session deletion API not available, continuing...");
+      }
+      
+      // 3. CSRF 토큰 제거
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("csrf-token");
+        sessionStorage.clear();
+      }
+      
+      // 4. 강제로 페이지 새로고침하여 모든 상태 초기화
+      window.location.href = "/";
+    } catch (error) {
+      console.error("[Auth] Logout error:", error);
+      // 에러가 발생해도 강제로 홈으로 이동
+      window.location.href = "/";
+    }
   };
 
   const handleUpdateUser = async (data: Partial<User>) => {

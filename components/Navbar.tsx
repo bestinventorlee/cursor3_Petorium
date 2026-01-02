@@ -74,7 +74,23 @@ export default function Navbar() {
                   </span>
                 </Link>
                 <button
-                  onClick={() => signOut()}
+                  onClick={async () => {
+                    if (confirm("정말 로그아웃하시겠습니까?")) {
+                      try {
+                        await signOut({ redirect: false });
+                        // CSRF 토큰 제거
+                        if (typeof window !== "undefined") {
+                          localStorage.removeItem("csrf-token");
+                          sessionStorage.clear();
+                        }
+                        // 강제로 페이지 새로고침
+                        window.location.href = "/";
+                      } catch (error) {
+                        console.error("Logout error:", error);
+                        window.location.href = "/";
+                      }
+                    }
+                  }}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition"
                 >
                   로그아웃
