@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
@@ -8,14 +8,31 @@ import SearchBar from "./SearchBar";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // 로그아웃 플래그 확인
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const logoutFlag = localStorage.getItem("_logout_in_progress");
+      if (logoutFlag === "true") {
+        setIsLoggingOut(true);
+      }
+    }
+  }, []);
 
   // 세션 상태 로깅 (디버깅용)
   useEffect(() => {
+    // 로그아웃 중이면 세션을 무시
+    if (isLoggingOut) {
+      console.log("[Navbar] Logout in progress, ignoring session");
+      return;
+    }
+    
     console.log("[Navbar] Session status:", status);
     console.log("[Navbar] Session data:", session);
     console.log("[Navbar] User:", session?.user);
-    console.log("[Navbar] Should show logout button:", status === "authenticated" && !!session);
-  }, [status, session]);
+    console.log("[Navbar] Should show logout button:", status === "authenticated" && !!session && !isLoggingOut);
+  }, [status, session, isLoggingOut]);
 
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 hidden md:block">
@@ -60,7 +77,7 @@ export default function Navbar() {
             {/* 세션 상태에 따른 버튼 표시 */}
             {status === "loading" ? (
               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-            ) : status === "authenticated" && session ? (
+            ) : status === "authenticated" && session && !isLoggingOut ? (
               <div className="flex items-center gap-3">
                 {session.user && (
                   <Link

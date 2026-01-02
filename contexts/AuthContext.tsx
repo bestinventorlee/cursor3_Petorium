@@ -44,10 +44,23 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [forceUnauthenticated, setForceUnauthenticated] = useState(false);
 
+  // 로그아웃 상태를 localStorage에 저장하여 페이지 새로고침 후에도 유지
   useEffect(() => {
-    // 로그아웃 중이면 세션을 무시
+    if (typeof window !== "undefined") {
+      const logoutFlag = localStorage.getItem("_logout_in_progress");
+      if (logoutFlag === "true") {
+        console.log("[AuthContext] Logout flag found in localStorage, setting forceUnauthenticated");
+        setForceUnauthenticated(true);
+        setIsLoggingOut(true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // 로그아웃 중이면 세션을 완전히 무시
     if (isLoggingOut || forceUnauthenticated) {
       console.log("[AuthContext] Logging out, ignoring session");
+      setLoading(false);
       return;
     }
     
@@ -58,7 +71,21 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.log("[AuthContext] User is unauthenticated");
         setIsLoggingOut(false);
         setForceUnauthenticated(false);
+        // 로그아웃 플래그 제거
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("_logout_in_progress");
+        }
       } else if (status === "authenticated") {
+        // 세션이 있지만 로그아웃 플래그가 있으면 무시
+        if (typeof window !== "undefined") {
+          const logoutFlag = localStorage.getItem("_logout_in_progress");
+          if (logoutFlag === "true") {
+            console.log("[AuthContext] Session exists but logout flag is set, ignoring session");
+            setForceUnauthenticated(true);
+            setIsLoggingOut(true);
+            return;
+          }
+        }
         console.log("[AuthContext] User is authenticated:", session?.user?.id);
       }
     }
@@ -133,13 +160,24 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       setForceUnauthenticated(true);
       console.log("[Auth] Starting logout process...");
       
-      // 1. 스토리지 먼저 정리
+      // 0. 로그아웃 플래그를 먼저 설정 (세션이 재생성되는 것을 방지)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("_logout_in_progress", "true");
+        console.log("[Auth] Logout flag set in localStorage");
+      }
+      
+      // 1. 스토리지 정리 (로그아웃 플래그는 제외)
       if (typeof window !== "undefined") {
         console.log("[Auth] Clearing storage...");
+        const logoutFlag = localStorage.getItem("_logout_in_progress");
         localStorage.removeItem("csrf-token");
         localStorage.clear();
         sessionStorage.clear();
-        console.log("[Auth] Storage cleared");
+        // 로그아웃 플래그 복원
+        if (logoutFlag === "true") {
+          localStorage.setItem("_logout_in_progress", "true");
+        }
+        console.log("[Auth] Storage cleared (logout flag preserved)");
       }
       
       // 2. 커스텀 signout API 호출 (서버 측 쿠키 삭제가 가장 중요)
@@ -219,6 +257,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== "undefined") {
         // 쿠키 삭제가 완료되도록 충분한 지연 후 완전히 새 페이지 로드
         setTimeout(() => {
+          // 로그아웃 플래그는 유지하되, 로그인 페이지에서는 제거됨
           // window.location.replace로 히스토리에서 제거하고 완전히 새 페이지 로드
           // 쿼리 파라미터로 캐시 방지
           const timestamp = Date.now();
