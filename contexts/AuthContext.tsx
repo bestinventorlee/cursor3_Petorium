@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refetchInterval={0} // 세션 자동 갱신 비활성화
       refetchOnWindowFocus={false} // 창 포커스 시 세션 갱신 비활성화
       basePath="/api/auth" // NextAuth API 경로 명시
+      // 로그아웃 후 세션 갱신 방지
     >
       <AuthContextProvider>{children}</AuthContextProvider>
     </SessionProvider>
@@ -41,19 +42,27 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [forceUnauthenticated, setForceUnauthenticated] = useState(false);
 
   useEffect(() => {
+    // 로그아웃 중이면 세션을 무시
+    if (isLoggingOut || forceUnauthenticated) {
+      console.log("[AuthContext] Logging out, ignoring session");
+      return;
+    }
+    
     if (status !== "loading") {
       setLoading(false);
       // 세션이 없으면 명시적으로 로그
       if (status === "unauthenticated") {
         console.log("[AuthContext] User is unauthenticated");
         setIsLoggingOut(false);
+        setForceUnauthenticated(false);
       } else if (status === "authenticated") {
         console.log("[AuthContext] User is authenticated:", session?.user?.id);
       }
     }
-  }, [status, session]);
+  }, [status, session, isLoggingOut, forceUnauthenticated]);
 
   const handleSignIn = async (email: string, password: string) => {
     try {
@@ -121,6 +130,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
+      setForceUnauthenticated(true);
       console.log("[Auth] Starting logout process...");
       
       // 1. 스토리지 먼저 정리
@@ -148,25 +158,15 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         // Set-Cookie 헤더 확인
         const setCookieHeaders = signoutResponse.headers.getSetCookie();
         console.log("[Auth] Signout API Set-Cookie headers:", setCookieHeaders.length);
+        setCookieHeaders.forEach((cookie, index) => {
+          console.log(`[Auth] Set-Cookie ${index + 1}:`, cookie.substring(0, 100));
+        });
         
         if (!signoutResponse.ok) {
           console.warn(`[Auth] Signout API failed: ${signoutResponse.status}`);
         }
       } catch (apiError) {
         console.error("[Auth] Signout API error:", apiError);
-      }
-      
-      // 2-1. NextAuth의 기본 signout API도 호출 (이중 확인)
-      try {
-        console.log("[Auth] Calling NextAuth default signout...");
-        await fetch("/api/auth/signout", {
-          method: "POST",
-          credentials: "include",
-        }).catch(() => {
-          // NextAuth의 기본 signout이 없을 수도 있음
-        });
-      } catch (err) {
-        // 무시
       }
       
       // 3. 커스텀 로그아웃 API 호출 (추가 쿠키 삭제)
@@ -205,12 +205,14 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
           // 쿼리 파라미터로 캐시 방지
           const timestamp = Date.now();
           // 완전히 새로운 페이지로 이동하여 세션 상태 초기화
-          window.location.href = `/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`;
-        }, 1000);
+          // 로그아웃 플래그를 명확히 전달
+          window.location.replace(`/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`);
+        }, 1500);
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);
       setIsLoggingOut(false);
+      setForceUnauthenticated(false);
       // 에러가 발생해도 강제로 로그인 페이지로 이동
       if (typeof window !== "undefined") {
         window.location.replace("/auth/signin?logout=true");
@@ -227,17 +229,22 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // 로그아웃 중이거나 강제 비인증 상태면 user를 null로 설정
+  const effectiveUser = (isLoggingOut || forceUnauthenticated) 
+    ? null 
+    : (session?.user
+        ? {
+            id: session.user.id,
+            email: session.user.email!,
+            username: (session.user as any).username,
+            name: session.user.name,
+            image: session.user.image,
+          }
+        : null);
+
   const value: AuthContextType = {
-    user: session?.user
-      ? {
-          id: session.user.id,
-          email: session.user.email!,
-          username: (session.user as any).username,
-          name: session.user.name,
-          image: session.user.image,
-        }
-      : null,
-    loading,
+    user: effectiveUser,
+    loading: loading && !isLoggingOut && !forceUnauthenticated,
     signIn: handleSignIn,
     signUp: handleSignUp,
     logout: handleLogout,
