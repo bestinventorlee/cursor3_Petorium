@@ -31,18 +31,31 @@ export default function FeedPage() {
       try {
         // 추천 피드 사용
         const response = await fetch("/api/feed/for-you?limit=15");
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        if (data.videos) {
+        if (data.videos && data.videos.length > 0) {
           setVideos(data.videos);
+        } else {
+          // 비디오가 없으면 폴백 시도
+          throw new Error("No videos found");
         }
       } catch (error) {
         console.error("Error fetching videos:", error);
         // 폴백: 일반 비디오 목록
         try {
-          const fallbackResponse = await fetch("/api/videos?page=1&limit=10");
+          const fallbackResponse = await fetch("/api/videos?page=1&limit=15");
+          
+          if (!fallbackResponse.ok) {
+            throw new Error(`Fallback HTTP error! status: ${fallbackResponse.status}`);
+          }
+          
           const fallbackData = await fallbackResponse.json();
-          if (fallbackData.videos) {
+          if (fallbackData.videos && fallbackData.videos.length > 0) {
             setVideos(fallbackData.videos);
           }
         } catch (fallbackError) {

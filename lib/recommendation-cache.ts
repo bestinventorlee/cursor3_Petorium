@@ -57,6 +57,25 @@ export async function getCachedTrendingVideos() {
   const trendingVideos = await prisma.video.findMany({
     where: {
       createdAt: { gte: last24Hours },
+      isRemoved: false,
+      isFlagged: false,
+      // 처리 중이거나 오류 상태인 비디오 제외
+      AND: [
+        {
+          videoUrl: {
+            not: {
+              startsWith: "processing://",
+            },
+          },
+        },
+        {
+          videoUrl: {
+            not: {
+              startsWith: "error://",
+            },
+          },
+        },
+      ],
     },
     include: {
       _count: {

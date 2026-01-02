@@ -29,44 +29,93 @@ export async function calculateVideoScores(
   if (!userId && excludeVideoIds.length === 0) {
     const cachedTrending = await getCachedTrendingVideos();
     const cachedIds = cachedTrending.map((v: any) => v.id);
-    trendingVideos = await prisma.video.findMany({
-      where: {
-        id: { in: cachedIds },
-        createdAt: { gte: last7Days },
-        isRemoved: false,
-        isFlagged: false,
-        // 처리 중이거나 오류 상태인 비디오 제외
-        AND: [
-          {
-            videoUrl: {
-              not: {
-                startsWith: "processing://",
+    
+    // 캐시된 트렌딩 비디오가 있을 때만 캐시 사용, 없으면 일반 쿼리 사용
+    if (cachedIds.length > 0) {
+      trendingVideos = await prisma.video.findMany({
+        where: {
+          id: { in: cachedIds },
+          createdAt: { gte: last7Days },
+          isRemoved: false,
+          isFlagged: false,
+          // 처리 중이거나 오류 상태인 비디오 제외
+          AND: [
+            {
+              videoUrl: {
+                not: {
+                  startsWith: "processing://",
+                },
               },
             },
-          },
-          {
-            videoUrl: {
-              not: {
-                startsWith: "error://",
+            {
+              videoUrl: {
+                not: {
+                  startsWith: "error://",
+                },
               },
             },
+          ],
+        },
+        include: {
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
           },
+          hashtags: {
+            include: {
+              hashtag: true,
+            },
+          },
+        },
+      });
+    } else {
+      // 캐시가 비어있으면 일반 쿼리 사용
+      trendingVideos = await prisma.video.findMany({
+        where: {
+          createdAt: { gte: last7Days },
+          id: { notIn: excludeVideoIds },
+          isRemoved: false,
+          isFlagged: false,
+          // 처리 중이거나 오류 상태인 비디오 제외
+          AND: [
+            {
+              videoUrl: {
+                not: {
+                  startsWith: "processing://",
+                },
+              },
+            },
+            {
+              videoUrl: {
+                not: {
+                  startsWith: "error://",
+                },
+              },
+            },
+          ],
+        },
+        include: {
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
+          hashtags: {
+            include: {
+              hashtag: true,
+            },
+          },
+        },
+        orderBy: [
+          { views: "desc" },
+          { createdAt: "desc" },
         ],
-      },
-      include: {
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
-          },
-        },
-        hashtags: {
-          include: {
-            hashtag: true,
-          },
-        },
-      },
-    });
+        take: 100, // 상위 100개만 고려
+      });
+    }
   } else {
     trendingVideos = await prisma.video.findMany({
       where: {
