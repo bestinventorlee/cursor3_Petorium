@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
-const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const configuredBasePath =
+  process.env.NEXT_PUBLIC_BASE_PATH ||
+  (process.env.NODE_ENV === "production" ? "/petorium" : "");
 
 const nextConfig = {
   basePath: configuredBasePath,
