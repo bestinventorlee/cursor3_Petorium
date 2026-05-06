@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import SearchBar from "./SearchBar";
@@ -15,6 +16,7 @@ function isLogoutInProgress(): boolean {
 
 export default function Navbar() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(() => isLogoutInProgress());
 
   // 로그아웃 플래그 확인 및 업데이트
@@ -171,7 +173,7 @@ export default function Navbar() {
             ) : (
               <button
                 type="button"
-                onClick={() => signIn()}
+                onClick={() => router.push("/auth/signin")}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition whitespace-nowrap flex-shrink-0"
               >
                 로그인
