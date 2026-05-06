@@ -37,7 +37,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="h-full flex flex-col">
           {/* Logo */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <Link href={withBasePath("/admin")} className="flex items-center space-x-2">
+            <Link href="/admin" className="flex items-center space-x-2">
               <span className="text-2xl font-bold text-blue-600">Petorium</span>
               <span className="text-sm text-gray-500 dark:text-gray-400">Admin</span>
             </Link>
@@ -52,7 +52,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               return (
                 <Link
                   key={item.href}
-                  href={withBasePath(item.href)}
+                  href={item.href}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
                     isActive
                       ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Footer */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <Link
-              href={withBasePath("/")}
+              href="/"
               className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
               <span>←</span>

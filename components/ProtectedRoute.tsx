@@ -44,7 +44,7 @@ export default function ProtectedRoute({
       router.refresh();
     } else if (!requireAuth && user && session) {
       // 이미 로그인한 사용자가 로그인 페이지에 접근하려고 할 때
-      router.push(withBasePath("/"));
+      router.push("/");
     }
   }, [user, loading, session, sessionStatus, requireAuth, redirectTo, router]);
 

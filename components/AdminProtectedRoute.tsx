@@ -20,7 +20,7 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
       if (status === "loading") return;
 
       if (!session) {
-        router.push(withBasePath("/auth/signin?callbackUrl=/admin"));
+        router.push("/auth/signin?callbackUrl=/admin");
         return;
       }
 
@@ -29,11 +29,11 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
         if (response.ok) {
           setIsAuthorized(true);
         } else {
-          router.push(withBasePath("/"));
+          router.push("/");
         }
       } catch (error) {
         console.error("Error checking admin status:", error);
-        router.push(withBasePath("/"));
+        router.push("/");
       } finally {
         setLoading(false);
       }

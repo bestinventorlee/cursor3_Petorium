@@ -40,7 +40,7 @@ export default function SignInPage() {
       
       if (urlParams.get("logout") !== "true" && logoutFlag !== "true") {
         // 이미 로그인된 상태면 리다이렉트
-        router.push(withBasePath("/"));
+        router.push("/");
         router.refresh();
       }
     }
@@ -95,7 +95,7 @@ export default function SignInPage() {
           if (currentSession?.user?.id) {
             console.log("[SignIn] Session confirmed:", currentSession.user.id);
             // 세션 확인됨 - 리다이렉트
-            router.push(withBasePath("/"));
+            router.push("/");
             router.refresh();
             return;
           }
@@ -104,7 +104,7 @@ export default function SignInPage() {
           // 마지막 시도에서도 세션이 없으면 강제 리다이렉트
           if (retryCount >= maxRetries) {
             console.warn("[SignIn] Session not found after retries, redirecting anyway");
-            router.push(withBasePath("/"));
+            router.push("/");
             router.refresh();
             return;
           }
@@ -112,7 +112,7 @@ export default function SignInPage() {
       } catch (updateError) {
         console.error("Session update error:", updateError);
         // 업데이트 실패해도 리다이렉트 시도
-        router.push(withBasePath("/"));
+        router.push("/");
         router.refresh();
       }
     } catch (err: any) {

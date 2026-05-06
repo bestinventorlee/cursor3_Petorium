@@ -489,7 +489,7 @@ export default function ProfilePage() {
                       onClick={async () => {
                         if (confirm("정말 로그아웃하시겠습니까?")) {
                           await logout();
-                          router.push(withBasePath("/"));
+                          router.push("/");
                         }
                       }}
                       className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"

@@ -131,7 +131,7 @@ export default function VideoPage() {
         <div className="text-center">
           <p className="text-white text-xl mb-4">{error || "비디오를 찾을 수 없습니다"}</p>
           <button
-            onClick={() => router.push(withBasePath("/feed"))}
+            onClick={() => router.push("/feed")}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             피드로 돌아가기
@@ -158,7 +158,7 @@ export default function VideoPage() {
       }
 
       alert("비디오가 삭제되었습니다");
-      router.push(withBasePath("/profile"));
+      router.push("/profile");
     } catch (err) {
       console.error("Error deleting video:", err);
       alert("비디오 삭제 중 오류가 발생했습니다");

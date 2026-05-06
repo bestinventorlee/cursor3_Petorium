@@ -82,7 +82,7 @@ export default function SignUpPage() {
       if (result?.error) {
         setErrors({ submit: result.error });
       } else {
-        router.push(withBasePath("/"));
+        router.push("/");
         router.refresh();
       }
     } catch (err) {

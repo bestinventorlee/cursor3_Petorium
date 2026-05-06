@@ -60,7 +60,7 @@ function ResetPasswordContent() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push(withBasePath("/auth/signin"));
+        router.push("/auth/signin");
       }, 2000);
     } catch (err) {
       setError("비밀번호 재설정 중 오류가 발생했습니다");
