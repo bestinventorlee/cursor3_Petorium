@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { BASE_PATH, withBasePath } from "@/lib/base-path";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,10 @@ const navItems = [
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const normalizedPathname =
+    BASE_PATH && pathname.startsWith(BASE_PATH)
+      ? pathname.slice(BASE_PATH.length) || "/"
+      : pathname;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -32,7 +37,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="h-full flex flex-col">
           {/* Logo */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <Link href="/admin" className="flex items-center space-x-2">
+            <Link href={withBasePath("/admin")} className="flex items-center space-x-2">
               <span className="text-2xl font-bold text-blue-600">Petorium</span>
               <span className="text-sm text-gray-500 dark:text-gray-400">Admin</span>
             </Link>
@@ -41,11 +46,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              const isActive =
+                normalizedPathname === item.href ||
+                normalizedPathname.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={withBasePath(item.href)}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
                     isActive
                       ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
@@ -62,7 +69,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Footer */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <Link
-              href="/"
+              href={withBasePath("/")}
               className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
               <span>←</span>

@@ -54,7 +54,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 hidden md:block">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Link href="/" className="flex items-center flex-shrink-0">
+          <Link href={withBasePath("/")} className="flex items-center flex-shrink-0">
             <h1 className="text-2xl font-bold text-blue-600">Petorium</h1>
           </Link>
 
@@ -64,26 +64,26 @@ export default function Navbar() {
 
           <div className="flex items-center space-x-4 flex-shrink-0">
             <Link
-              href="/"
+              href={withBasePath("/")}
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
             >
               홈
             </Link>
             <Link
-              href="/feed"
+              href={withBasePath("/feed")}
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
             >
               피드
             </Link>
             <Link
-              href="/trending"
+              href={withBasePath("/trending")}
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
             >
               트렌딩
             </Link>
             {session && (
               <Link
-                href="/upload"
+                href={withBasePath("/upload")}
                 className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
               >
                 업로드
