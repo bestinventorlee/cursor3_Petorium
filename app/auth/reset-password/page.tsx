@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { withBasePath } from "@/lib/base-path";
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -43,7 +44,7 @@ function ResetPasswordContent() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/reset-password", {
+      const response = await fetch(withBasePath("/api/auth/reset-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
@@ -59,7 +60,7 @@ function ResetPasswordContent() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/auth/signin");
+        router.push(withBasePath("/auth/signin"));
       }, 2000);
     } catch (err) {
       setError("비밀번호 재설정 중 오류가 발생했습니다");

@@ -9,6 +9,7 @@ import CommentSection from "@/components/CommentSection";
 import Link from "next/link";
 import Image from "next/image";
 import { api } from "@/lib/api-client";
+import { withBasePath } from "@/lib/base-path";
 
 interface Video {
   id: string;
@@ -47,7 +48,7 @@ export default function VideoPage() {
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        const response = await fetch(`/api/videos/${params.id}`);
+        const response = await fetch(withBasePath(`/api/videos/${params.id}`));
         if (!response.ok) {
           if (response.status === 404) {
             setError("비디오를 찾을 수 없습니다");
@@ -88,7 +89,7 @@ export default function VideoPage() {
 
     const pollStatus = async () => {
       try {
-        const response = await fetch(`/api/videos/${videoId}/status`);
+        const response = await fetch(withBasePath(`/api/videos/${videoId}/status`));
         if (!response.ok) return;
 
         const data = await response.json();
@@ -96,7 +97,7 @@ export default function VideoPage() {
         if (!data.isProcessing) {
           // 처리 완료 - 비디오 다시 로드
           setIsProcessing(false);
-          const videoResponse = await fetch(`/api/videos/${videoId}`);
+          const videoResponse = await fetch(withBasePath(`/api/videos/${videoId}`));
           if (videoResponse.ok) {
             const videoData = await videoResponse.json();
             setVideo(videoData);
@@ -130,7 +131,7 @@ export default function VideoPage() {
         <div className="text-center">
           <p className="text-white text-xl mb-4">{error || "비디오를 찾을 수 없습니다"}</p>
           <button
-            onClick={() => router.push("/feed")}
+            onClick={() => router.push(withBasePath("/feed"))}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             피드로 돌아가기
@@ -157,7 +158,7 @@ export default function VideoPage() {
       }
 
       alert("비디오가 삭제되었습니다");
-      router.push("/profile");
+      router.push(withBasePath("/profile"));
     } catch (err) {
       console.error("Error deleting video:", err);
       alert("비디오 삭제 중 오류가 발생했습니다");

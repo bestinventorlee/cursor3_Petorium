@@ -5,25 +5,41 @@ import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import SearchBar from "./SearchBar";
+import { withBasePath } from "@/lib/base-path";
+
+// 로그아웃 플래그 확인 헬퍼 함수
+function isLogoutInProgress(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("_logout_in_progress") === "true";
+}
 
 export default function Navbar() {
   const { data: session, status } = useSession();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(() => isLogoutInProgress());
 
-  // 로그아웃 플래그 확인
+  // 로그아웃 플래그 확인 및 업데이트
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const logoutFlag = localStorage.getItem("_logout_in_progress");
-      if (logoutFlag === "true") {
-        setIsLoggingOut(true);
+    const checkLogoutFlag = () => {
+      const logoutFlag = isLogoutInProgress();
+      if (logoutFlag !== isLoggingOut) {
+        console.log(`[Navbar] Logout flag changed: ${logoutFlag}`);
+        setIsLoggingOut(logoutFlag);
       }
-    }
-  }, []);
+    };
+
+    // 초기 체크
+    checkLogoutFlag();
+
+    // 주기적으로 체크 (로그아웃 플래그 변경 감지)
+    const interval = setInterval(checkLogoutFlag, 100);
+    return () => clearInterval(interval);
+  }, [isLoggingOut]);
 
   // 세션 상태 로깅 (디버깅용)
   useEffect(() => {
-    // 로그아웃 중이면 세션을 무시
-    if (isLoggingOut) {
+    // 로그아웃 중이면 세션을 무시 (가장 먼저 체크)
+    const logoutFlag = isLogoutInProgress();
+    if (logoutFlag || isLoggingOut) {
       console.log("[Navbar] Logout in progress, ignoring session");
       return;
     }
@@ -121,7 +137,7 @@ export default function Navbar() {
                         
                         // 1. NextAuth signout API 직접 호출
                         try {
-                          await fetch("/api/auth/signout", {
+                          await fetch(withBasePath("/api/auth/signout"), {
                             method: "POST",
                             credentials: "include",
                           });
@@ -132,17 +148,17 @@ export default function Navbar() {
                         // 2. NextAuth signOut 함수 호출
                         await signOut({ 
                           redirect: false,
-                          callbackUrl: "/auth/signin"
+                          callbackUrl: withBasePath("/auth/signin")
                         });
                         
                         // 3. 강제로 로그인 페이지로 이동
                         setTimeout(() => {
-                          window.location.replace("/auth/signin");
+                          window.location.replace(withBasePath("/auth/signin"));
                         }, 300);
                       } catch (error) {
                         console.error("Logout error:", error);
                         // 에러 발생 시에도 로그인 페이지로 이동
-                        window.location.href = "/auth/signin";
+                        window.location.href = withBasePath("/auth/signin");
                       }
                     }
                   }}

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
+import { withBasePath } from "@/lib/base-path";
 
 interface User {
   id: string;
@@ -44,7 +45,7 @@ export default function AdminUsersPage() {
       if (role) params.set("role", role);
       if (banned) params.set("banned", banned);
 
-      const response = await fetch(`/api/admin/users?${params}`);
+      const response = await fetch(withBasePath(`/api/admin/users?${params}`));
       const data = await response.json();
       setUsers(data.users);
       setTotalPages(data.pagination.totalPages);
@@ -63,7 +64,7 @@ export default function AdminUsersPage() {
     if (!confirm("이 사용자를 차단하시겠습니까?")) return;
 
     try {
-      const response = await fetch("/api/admin/users", {
+      const response = await fetch(withBasePath("/api/admin/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, reason }),
@@ -79,7 +80,7 @@ export default function AdminUsersPage() {
 
   const handleUnban = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}/unban`, {
+      const response = await fetch(withBasePath(`/api/admin/users/${userId}/unban`), {
         method: "POST",
       });
 
@@ -95,7 +96,7 @@ export default function AdminUsersPage() {
     if (!confirm("이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
 
     try {
-      const response = await fetch("/api/admin/users", {
+      const response = await fetch(withBasePath("/api/admin/users"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),

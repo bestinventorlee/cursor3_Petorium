@@ -5,6 +5,7 @@ import Image from "next/image";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 import Link from "next/link";
+import { withBasePath } from "@/lib/base-path";
 
 interface Video {
   id: string;
@@ -47,7 +48,7 @@ export default function AdminVideosPage() {
       if (removed) params.set("removed", removed);
       if (flagged) params.set("flagged", flagged);
 
-      const response = await fetch(`/api/admin/videos?${params}`);
+      const response = await fetch(withBasePath(`/api/admin/videos?${params}`));
       const data = await response.json();
       setVideos(data.videos);
       setTotalPages(data.pagination.totalPages);
@@ -67,13 +68,13 @@ export default function AdminVideosPage() {
 
     try {
       // CSRF 토큰 가져오기
-      const csrfResponse = await fetch("/api/csrf-token", {
+      const csrfResponse = await fetch(withBasePath("/api/csrf-token"), {
         cache: "no-store",
       });
       const csrfData = await csrfResponse.json();
       const csrfToken = csrfData.token;
 
-      const response = await fetch("/api/admin/videos", {
+      const response = await fetch(withBasePath("/api/admin/videos"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -93,13 +94,13 @@ export default function AdminVideosPage() {
   const handleRestore = async (videoId: string) => {
     try {
       // CSRF 토큰 가져오기
-      const csrfResponse = await fetch("/api/csrf-token", {
+      const csrfResponse = await fetch(withBasePath("/api/csrf-token"), {
         cache: "no-store",
       });
       const csrfData = await csrfResponse.json();
       const csrfToken = csrfData.token;
 
-      const response = await fetch(`/api/admin/videos/${videoId}/restore`, {
+      const response = await fetch(withBasePath(`/api/admin/videos/${videoId}/restore`), {
         method: "POST",
         headers: {
           "X-CSRF-Token": csrfToken,
@@ -116,7 +117,7 @@ export default function AdminVideosPage() {
 
   const handleFlag = async (videoId: string) => {
     try {
-      const response = await fetch("/api/admin/videos", {
+      const response = await fetch(withBasePath("/api/admin/videos"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoId }),

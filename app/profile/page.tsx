@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Image from "next/image";
 import VideoGrid from "@/components/VideoGrid";
+import { withBasePath } from "@/lib/base-path";
 
 type TabType = "settings" | "videos" | "liked" | "saved";
 
@@ -63,7 +64,7 @@ export default function ProfilePage() {
       // 로딩 중이지만 쿠키가 없으면 즉시 리다이렉트
       if (!hasSessionCookie && sessionStatus !== "loading") {
         console.log("[ProfilePage] No session cookie during loading, redirecting...");
-        window.location.href = "/auth/signin?callbackUrl=/profile&logout=true";
+        window.location.href = withBasePath("/auth/signin?callbackUrl=/profile&logout=true");
         return;
       }
       return;
@@ -76,7 +77,7 @@ export default function ProfilePage() {
       // 쿠키가 있으면 삭제 시도
       if (hasSessionCookie) {
         console.log("[ProfilePage] Session cookie exists but no session, clearing cookie...");
-        fetch("/api/auth/logout", {
+        fetch(withBasePath("/api/auth/logout"), {
           method: "POST",
           credentials: "include",
         }).catch(() => {
@@ -85,7 +86,7 @@ export default function ProfilePage() {
       }
       
       // 즉시 로그인 페이지로 이동 (서버 측 확인 없이)
-      window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
+      window.location.replace(withBasePath("/auth/signin?callbackUrl=/profile&logout=true"));
       return;
     }
     
@@ -122,7 +123,7 @@ export default function ProfilePage() {
           return;
       }
 
-      const response = await fetch(`${endpoint}?page=${pageNum}&limit=20`);
+      const response = await fetch(withBasePath(`${endpoint}?page=${pageNum}&limit=20`));
       if (response.ok) {
         const data = await response.json();
         if (pageNum === 1) {
@@ -160,7 +161,7 @@ export default function ProfilePage() {
     }
 
     try {
-      const response = await fetch("/api/auth/profile", {
+      const response = await fetch(withBasePath("/api/auth/profile"), {
         credentials: "include",
       });
       
@@ -168,13 +169,13 @@ export default function ProfilePage() {
         // 인증 실패 - 쿠키 삭제 후 로그인 페이지로 리다이렉트
         console.log("[ProfilePage] Profile fetch failed: authentication required");
         // 쿠키 삭제 시도
-        await fetch("/api/auth/logout", {
+        await fetch(withBasePath("/api/auth/logout"), {
           method: "POST",
           credentials: "include",
         }).catch(() => {
           // 무시
         });
-        window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
+        window.location.replace(withBasePath("/auth/signin?callbackUrl=/profile&logout=true"));
         return;
       }
       
@@ -190,12 +191,12 @@ export default function ProfilePage() {
       } else {
         console.error("[ProfilePage] Profile fetch failed:", response.status);
         // 오류 발생 시 로그인 페이지로 리다이렉트
-        window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
+        window.location.replace(withBasePath("/auth/signin?callbackUrl=/profile&logout=true"));
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
       // 오류 발생 시 로그인 페이지로 리다이렉트
-      window.location.replace("/auth/signin?callbackUrl=/profile&logout=true");
+      window.location.replace(withBasePath("/auth/signin?callbackUrl=/profile&logout=true"));
     } finally {
       setLoading(false);
     }
@@ -207,7 +208,7 @@ export default function ProfilePage() {
     setSuccess("");
 
     try {
-      const response = await fetch("/api/auth/profile", {
+      const response = await fetch(withBasePath("/api/auth/profile"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -283,7 +284,7 @@ export default function ProfilePage() {
                       } catch (error) {
                         console.error("Logout error:", error);
                         // 에러가 발생해도 강제로 홈으로 이동
-                        window.location.href = "/";
+                        window.location.href = withBasePath("/");
                       }
                     }
                   }}
@@ -488,7 +489,7 @@ export default function ProfilePage() {
                       onClick={async () => {
                         if (confirm("정말 로그아웃하시겠습니까?")) {
                           await logout();
-                          router.push("/");
+                          router.push(withBasePath("/"));
                         }
                       }}
                       className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"

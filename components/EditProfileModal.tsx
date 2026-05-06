@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import { withBasePath } from "@/lib/base-path";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -88,7 +89,7 @@ export default function EditProfileModal({
         avatarUrl = user.avatar || user.image || "";
       }
 
-      const response = await fetch("/api/auth/profile", {
+      const response = await fetch(withBasePath("/api/auth/profile"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

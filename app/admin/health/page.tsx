@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
+import { withBasePath } from "@/lib/base-path";
 
 interface HealthData {
   timestamp: string;
@@ -38,7 +39,7 @@ export default function AdminHealthPage() {
 
   const fetchHealth = async () => {
     try {
-      const response = await fetch("/api/admin/health");
+      const response = await fetch(withBasePath("/api/admin/health"));
       const data = await response.json();
       setHealth(data);
     } catch (error) {

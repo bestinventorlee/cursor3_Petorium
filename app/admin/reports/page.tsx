@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
+import { withBasePath } from "@/lib/base-path";
 
 interface Report {
   id: string;
@@ -46,7 +47,7 @@ export default function AdminReportsPage() {
       if (status) params.set("status", status);
       if (type) params.set("type", type);
 
-      const response = await fetch(`/api/admin/reports?${params}`);
+      const response = await fetch(withBasePath(`/api/admin/reports?${params}`));
       const data = await response.json();
       setReports(data.reports);
       setTotalPages(data.pagination.totalPages);
@@ -63,7 +64,7 @@ export default function AdminReportsPage() {
 
   const handleReview = async (reportId: string, status: "RESOLVED" | "DISMISSED", notes?: string) => {
     try {
-      const response = await fetch("/api/admin/reports", {
+      const response = await fetch(withBasePath("/api/admin/reports"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId, status, notes }),

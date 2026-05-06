@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ResponsiveVideoFeed from "@/components/ResponsiveVideoFeed";
+import { withBasePath } from "@/lib/base-path";
 
 interface Video {
   id: string;
@@ -30,7 +31,7 @@ export default function FeedPage() {
     const fetchVideos = async () => {
       try {
         // 추천 피드 사용
-        const response = await fetch("/api/feed/for-you?limit=15");
+        const response = await fetch(withBasePath("/api/feed/for-you?limit=15"));
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -48,7 +49,7 @@ export default function FeedPage() {
         console.error("Error fetching videos:", error);
         // 폴백: 일반 비디오 목록
         try {
-          const fallbackResponse = await fetch("/api/videos?page=1&limit=15");
+          const fallbackResponse = await fetch(withBasePath("/api/videos?page=1&limit=15"));
           
           if (!fallbackResponse.ok) {
             throw new Error(`Fallback HTTP error! status: ${fallbackResponse.status}`);

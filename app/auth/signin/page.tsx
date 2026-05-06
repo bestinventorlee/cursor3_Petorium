@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { withBasePath } from "@/lib/base-path";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function SignInPage() {
       
       if (urlParams.get("logout") !== "true" && logoutFlag !== "true") {
         // 이미 로그인된 상태면 리다이렉트
-        router.push("/");
+        router.push(withBasePath("/"));
         router.refresh();
       }
     }
@@ -89,12 +90,12 @@ export default function SignInPage() {
         
         while (retryCount < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 200));
-          const currentSession = await fetch('/api/auth/session').then(res => res.json()).catch(() => null);
+          const currentSession = await fetch(withBasePath("/api/auth/session")).then(res => res.json()).catch(() => null);
           
           if (currentSession?.user?.id) {
             console.log("[SignIn] Session confirmed:", currentSession.user.id);
             // 세션 확인됨 - 리다이렉트
-            router.push("/");
+            router.push(withBasePath("/"));
             router.refresh();
             return;
           }
@@ -103,7 +104,7 @@ export default function SignInPage() {
           // 마지막 시도에서도 세션이 없으면 강제 리다이렉트
           if (retryCount >= maxRetries) {
             console.warn("[SignIn] Session not found after retries, redirecting anyway");
-            router.push("/");
+            router.push(withBasePath("/"));
             router.refresh();
             return;
           }
@@ -111,7 +112,7 @@ export default function SignInPage() {
       } catch (updateError) {
         console.error("Session update error:", updateError);
         // 업데이트 실패해도 리다이렉트 시도
-        router.push("/");
+        router.push(withBasePath("/"));
         router.refresh();
       }
     } catch (err: any) {
@@ -123,7 +124,7 @@ export default function SignInPage() {
 
   const handleSocialSignIn = async (provider: string) => {
     try {
-      await signIn(provider, { callbackUrl: "/" });
+      await signIn(provider, { callbackUrl: withBasePath("/") });
     } catch (err) {
       setError(`${provider} 로그인 중 오류가 발생했습니다`);
     }

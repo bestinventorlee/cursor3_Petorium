@@ -5,6 +5,14 @@
 let csrfTokenCache: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 
+function withBasePath(url: string): string {
+  if (!url.startsWith("/")) return url;
+  const basePath =
+    process.env.NEXT_PUBLIC_BASE_PATH ??
+    (process.env.NODE_ENV === "production" ? "/petorium" : "");
+  return `${basePath}${url}`;
+}
+
 /**
  * Get CSRF token (with caching)
  */
@@ -22,7 +30,7 @@ async function getCSRFToken(): Promise<string | null> {
   // Fetch new token
   csrfTokenPromise = (async () => {
     try {
-      const response = await fetch("/api/csrf-token", {
+      const response = await fetch(withBasePath("/api/csrf-token"), {
         cache: "no-store",
       });
       if (response.ok) {
@@ -78,7 +86,7 @@ export async function apiFetch(
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(url, {
+  return fetch(withBasePath(url), {
     ...options,
     headers,
   });

@@ -2,11 +2,12 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { withBasePath } from "@/lib/base-path";
 
 // CSRF 토큰 가져오기
 async function getCSRFToken(): Promise<string | null> {
   try {
-    const response = await fetch("/api/csrf-token", {
+    const response = await fetch(withBasePath("/api/csrf-token"), {
       cache: "no-store",
     });
     if (response.ok) {
@@ -265,7 +266,7 @@ export default function VideoUpload({
             reject(new Error("Upload aborted"));
           });
           
-          xhr.open("POST", "/api/videos/upload");
+          xhr.open("POST", withBasePath("/api/videos/upload"));
           
           // 타임아웃 설정 (10분 = 600000ms) - 비디오 처리 시간 고려
           xhr.timeout = 600000; // 10분

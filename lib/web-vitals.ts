@@ -18,7 +18,8 @@ export function reportWebVitals(metric: WebVitalsMetric) {
   // In production, send to your analytics service
   if (process.env.NODE_ENV === "production") {
     // Example: Send to analytics API
-    fetch("/api/analytics/web-vitals", {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/petorium";
+    fetch(`${basePath}/api/analytics/web-vitals`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(metric),

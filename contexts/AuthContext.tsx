@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useSession, signIn, signOut, SessionProvider } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
+import { withBasePath } from "@/lib/base-path";
 
 interface User {
   id: string;
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <SessionProvider
       refetchInterval={0} // 세션 자동 갱신 비활성화
       refetchOnWindowFocus={false} // 창 포커스 시 세션 갱신 비활성화
-      basePath="/api/auth" // NextAuth API 경로 명시
+      basePath={withBasePath("/api/auth")} // NextAuth API 경로 명시
       // 로그아웃 후 세션 갱신 방지
     >
       <AuthContextProvider>{children}</AuthContextProvider>
@@ -37,28 +38,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 로그아웃 플래그 확인 헬퍼 함수
+function isLogoutInProgress(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("_logout_in_progress") === "true";
+}
+
 function AuthContextProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status, update } = useSession();
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [forceUnauthenticated, setForceUnauthenticated] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(() => isLogoutInProgress());
+  const [forceUnauthenticated, setForceUnauthenticated] = useState(() => isLogoutInProgress());
 
   // 로그아웃 상태를 localStorage에 저장하여 페이지 새로고침 후에도 유지
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const logoutFlag = localStorage.getItem("_logout_in_progress");
-      if (logoutFlag === "true") {
-        console.log("[AuthContext] Logout flag found in localStorage, setting forceUnauthenticated");
-        setForceUnauthenticated(true);
-        setIsLoggingOut(true);
-      }
+    const logoutFlag = isLogoutInProgress();
+    if (logoutFlag) {
+      console.log("[AuthContext] Logout flag found in localStorage, setting forceUnauthenticated");
+      setForceUnauthenticated(true);
+      setIsLoggingOut(true);
     }
   }, []);
 
+  // 로그아웃 플래그 변경 감지
   useEffect(() => {
-    // 로그아웃 중이면 세션을 완전히 무시
-    if (isLoggingOut || forceUnauthenticated) {
+    const checkLogoutFlag = () => {
+      const logoutFlag = isLogoutInProgress();
+      if (logoutFlag && (!isLoggingOut || !forceUnauthenticated)) {
+        console.log("[AuthContext] Logout flag detected, updating state");
+        setForceUnauthenticated(true);
+        setIsLoggingOut(true);
+      } else if (!logoutFlag && (isLoggingOut || forceUnauthenticated)) {
+        console.log("[AuthContext] Logout flag cleared, resetting state");
+        setForceUnauthenticated(false);
+        setIsLoggingOut(false);
+      }
+    };
+
+    // 초기 체크
+    checkLogoutFlag();
+
+    // 주기적으로 체크 (로그아웃 플래그 변경 감지)
+    const interval = setInterval(checkLogoutFlag, 100);
+    return () => clearInterval(interval);
+  }, [isLoggingOut, forceUnauthenticated]);
+
+  useEffect(() => {
+    // 로그아웃 중이면 세션을 완전히 무시 (가장 먼저 체크)
+    const logoutFlag = isLogoutInProgress();
+    if (logoutFlag || isLoggingOut || forceUnauthenticated) {
       console.log("[AuthContext] Logging out, ignoring session");
       setLoading(false);
       return;
@@ -77,14 +106,12 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (status === "authenticated") {
         // 세션이 있지만 로그아웃 플래그가 있으면 무시
-        if (typeof window !== "undefined") {
-          const logoutFlag = localStorage.getItem("_logout_in_progress");
-          if (logoutFlag === "true") {
-            console.log("[AuthContext] Session exists but logout flag is set, ignoring session");
-            setForceUnauthenticated(true);
-            setIsLoggingOut(true);
-            return;
-          }
+        const currentLogoutFlag = isLogoutInProgress();
+        if (currentLogoutFlag) {
+          console.log("[AuthContext] Session exists but logout flag is set, ignoring session");
+          setForceUnauthenticated(true);
+          setIsLoggingOut(true);
+          return;
         }
         console.log("[AuthContext] User is authenticated:", session?.user?.id);
       }
@@ -183,7 +210,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       // 2. 커스텀 signout API 호출 (서버 측 쿠키 삭제가 가장 중요)
       try {
         console.log("[Auth] Calling custom signout API...");
-        const signoutResponse = await fetch("/api/auth/signout", {
+        const signoutResponse = await fetch(withBasePath("/api/auth/signout"), {
           method: "POST",
           credentials: "include",
           headers: {
@@ -210,7 +237,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       // 3. 커스텀 로그아웃 API 호출 (추가 쿠키 삭제)
       try {
         console.log("[Auth] Calling custom logout API...");
-        const logoutResponse = await fetch("/api/auth/logout", {
+        const logoutResponse = await fetch(withBasePath("/api/auth/logout"), {
           method: "POST",
           credentials: "include",
           headers: {
@@ -227,7 +254,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         console.log("[Auth] Calling signOut function...");
         await signOut({ 
           redirect: false,
-          callbackUrl: "/auth/signin"
+          callbackUrl: withBasePath("/auth/signin")
         });
         console.log("[Auth] SignOut function completed");
       } catch (signOutError) {
@@ -263,7 +290,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
           const timestamp = Date.now();
           // 완전히 새로운 페이지로 이동하여 세션 상태 초기화
           // 로그아웃 플래그를 명확히 전달
-          window.location.replace(`/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`);
+          window.location.replace(withBasePath(`/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`));
         }, 2000); // 지연 시간 증가
       }
     } catch (error) {
@@ -272,7 +299,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       setForceUnauthenticated(false);
       // 에러가 발생해도 강제로 로그인 페이지로 이동
       if (typeof window !== "undefined") {
-        window.location.replace("/auth/signin?logout=true");
+        window.location.replace(withBasePath("/auth/signin?logout=true"));
       }
     }
   };

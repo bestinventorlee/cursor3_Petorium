@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { withBasePath } from "@/lib/base-path";
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
@@ -19,20 +20,20 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
       if (status === "loading") return;
 
       if (!session) {
-        router.push("/auth/signin?callbackUrl=/admin");
+        router.push(withBasePath("/auth/signin?callbackUrl=/admin"));
         return;
       }
 
       try {
-        const response = await fetch("/api/admin/check");
+        const response = await fetch(withBasePath("/api/admin/check"));
         if (response.ok) {
           setIsAuthorized(true);
         } else {
-          router.push("/");
+          router.push(withBasePath("/"));
         }
       } catch (error) {
         console.error("Error checking admin status:", error);
-        router.push("/");
+        router.push(withBasePath("/"));
       } finally {
         setLoading(false);
       }

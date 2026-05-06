@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { withBasePath } from "@/lib/base-path";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -81,7 +82,7 @@ export default function SignUpPage() {
       if (result?.error) {
         setErrors({ submit: result.error });
       } else {
-        router.push("/");
+        router.push(withBasePath("/"));
         router.refresh();
       }
     } catch (err) {
@@ -94,7 +95,7 @@ export default function SignUpPage() {
   const handleSocialSignIn = async (provider: string) => {
     try {
       const { signIn } = await import("next-auth/react");
-      await signIn(provider, { callbackUrl: "/" });
+      await signIn(provider, { callbackUrl: withBasePath("/") });
     } catch (err) {
       setErrors({ submit: `${provider} 로그인 중 오류가 발생했습니다` });
     }
