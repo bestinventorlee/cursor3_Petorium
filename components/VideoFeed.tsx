@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import VideoPlayerFeed from "./VideoPlayerFeed";
 import VideoInteractions from "./VideoInteractions";
+import { withBasePath } from "@/lib/base-path";
 
 interface Video {
   id: string;
@@ -50,7 +51,7 @@ export default function VideoFeed({ initialVideos = [] }: VideoFeedProps) {
         ? `/api/feed/for-you?cursor=${encodeURIComponent(nextCursor)}&limit=15`
         : `/api/feed/for-you?limit=15`;
       
-      const response = await fetch(url);
+      const response = await fetch(withBasePath(url));
       const data = await response.json();
 
       if (data.videos && data.videos.length > 0) {
@@ -213,8 +214,8 @@ function VideoFeedItem({
     const checkStatus = async () => {
       try {
         const [likeResponse, followResponse] = await Promise.all([
-          fetch(`/api/videos/${video.id}/like`),
-          fetch(`/api/users/by-id/${video.user.id}/follow`),
+          fetch(withBasePath(`/api/videos/${video.id}/like`)),
+          fetch(withBasePath(`/api/users/by-id/${video.user.id}/follow`)),
         ]);
 
         if (likeResponse.ok) {

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import ProfileHeader from "@/components/ProfileHeader";
 import VideoGrid from "@/components/VideoGrid";
+import { withBasePath } from "@/lib/base-path";
 
 type TabType = "videos" | "liked" | "saved";
 
@@ -82,7 +83,7 @@ export default function UserProfilePage() {
   const fetchUser = async () => {
     try {
       console.log(`[UserProfile] Fetching user: /api/users/${username}`);
-      const response = await fetch(`/api/users/${username}`);
+      const response = await fetch(withBasePath(`/api/users/${username}`));
       console.log(`[UserProfile] Response status: ${response.status}`);
       
       if (response.ok) {
@@ -111,7 +112,7 @@ export default function UserProfilePage() {
     if (!currentUser || !user || currentUser.id === user.id) return;
 
     try {
-      const response = await fetch(`/api/users/by-id/${user.id}/follow`);
+      const response = await fetch(withBasePath(`/api/users/by-id/${user.id}/follow`));
       if (response.ok) {
         const data = await response.json();
         setIsFollowing(data.isFollowing);
@@ -140,7 +141,9 @@ export default function UserProfilePage() {
           break;
       }
 
-      const response = await fetch(`${endpoint}?page=${pageNum}&limit=20`);
+      const response = await fetch(
+        withBasePath(`${endpoint}?page=${pageNum}&limit=20`)
+      );
       if (response.ok) {
         const data = await response.json();
         if (pageNum === 1) {

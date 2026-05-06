@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import EditProfileModal from "./EditProfileModal";
 import PinchZoomImage from "./PinchZoomImage";
+import { withBasePath } from "@/lib/base-path";
 
 interface ProfileHeaderProps {
   user: {
@@ -48,7 +49,7 @@ export default function ProfileHeader({
     setIsFollowingState(newFollowingState);
 
     try {
-      const response = await fetch(`/api/users/by-id/${user.id}/follow`, {
+      const response = await fetch(withBasePath(`/api/users/by-id/${user.id}/follow`), {
         method: newFollowingState ? "POST" : "DELETE",
       });
 

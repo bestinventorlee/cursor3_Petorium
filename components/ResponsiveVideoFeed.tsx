@@ -7,6 +7,7 @@ import VideoInteractions from "./VideoInteractions";
 import CommentModal from "./CommentModal";
 import ShareModal from "./ShareModal";
 import Link from "next/link";
+import { withBasePath } from "@/lib/base-path";
 
 interface Video {
   id: string;
@@ -70,7 +71,7 @@ export default function ResponsiveVideoFeed({
         ? `/api/feed/for-you?cursor=${encodeURIComponent(nextCursor)}&limit=15`
         : `/api/feed/for-you?limit=15`;
 
-      const response = await fetch(url);
+      const response = await fetch(withBasePath(url));
       if (!response.ok) {
         throw new Error("Failed to fetch videos");
       }

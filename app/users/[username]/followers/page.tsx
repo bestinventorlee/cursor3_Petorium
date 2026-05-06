@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { withBasePath } from "@/lib/base-path";
 
 interface User {
   id: string;
@@ -37,7 +38,7 @@ export default function FollowersPage() {
   const fetchFollowers = async (pageNum: number = 1) => {
     try {
       // 먼저 사용자 ID 가져오기
-      const userResponse = await fetch(`/api/users/profile/${username}`);
+      const userResponse = await fetch(withBasePath(`/api/users/profile/${username}`));
       if (!userResponse.ok) {
         setLoading(false);
         return;
@@ -47,7 +48,7 @@ export default function FollowersPage() {
       const userId = userData.id;
 
       const response = await fetch(
-        `/api/users/by-id/${userId}/followers?page=${pageNum}&limit=20`
+        withBasePath(`/api/users/by-id/${userId}/followers?page=${pageNum}&limit=20`)
       );
       const data = await response.json();
 
@@ -68,7 +69,7 @@ export default function FollowersPage() {
 
   const handleFollow = async (userId: string, currentState: boolean) => {
     try {
-      const response = await fetch(`/api/users/by-id/${userId}/follow`, {
+      const response = await fetch(withBasePath(`/api/users/by-id/${userId}/follow`), {
         method: currentState ? "DELETE" : "POST",
       });
 
