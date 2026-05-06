@@ -53,40 +53,45 @@ export default function Navbar() {
   }, [status, session, isLoggingOut]);
 
   return (
-    <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 hidden md:block">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link href="/" className="flex items-center flex-shrink-0">
-            <h1 className="text-2xl font-bold text-blue-600">Petorium</h1>
+    <nav className="global-navbar sticky top-0 z-50 hidden border-b border-[#1f1f1f] bg-[#050505]/95 backdrop-blur-md md:block">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          <Link href="/" className="flex shrink-0 flex-col items-start">
+            <span className="font-display text-2xl font-extrabold tracking-tight text-[#FF6B6B]">
+              Petorium
+            </span>
+            <span className="hidden text-[11px] text-[#555] lg:block">
+              반려인을 위한 숏폼 비디오
+            </span>
           </Link>
 
-          <div className="flex-1 max-w-2xl mx-4">
+          <div className="mx-4 max-w-2xl flex-1">
             <SearchBar placeholder="검색..." className="w-full" />
           </div>
 
-          <div className="flex items-center space-x-4 flex-shrink-0">
+          <div className="flex shrink-0 items-center space-x-4">
             <Link
               href="/"
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
+              className="whitespace-nowrap text-[#888] transition hover:text-[#FF6B6B]"
             >
               홈
             </Link>
             <Link
               href="/feed"
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
+              className="whitespace-nowrap text-[#888] transition hover:text-[#FF6B6B]"
             >
               피드
             </Link>
             <Link
               href="/trending"
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
+              className="whitespace-nowrap text-[#888] transition hover:text-[#FF6B6B]"
             >
               트렌딩
             </Link>
             {session && (
               <Link
                 href="/upload"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition whitespace-nowrap"
+                className="whitespace-nowrap text-[#888] transition hover:text-[#FF6B6B]"
               >
                 업로드
               </Link>
@@ -94,13 +99,13 @@ export default function Navbar() {
 
             {/* 세션 상태에 따른 버튼 표시 */}
             {status === "loading" ? (
-              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+              <div className="h-8 w-8 shrink-0 animate-spin rounded-full border-2 border-[#FF6B6B] border-t-transparent"></div>
             ) : status === "authenticated" && session && !isLoggingOut ? (
               <div className="flex items-center gap-3">
                 {session.user && (
                   <Link
                     href={session.user?.username ? `/user/${session.user.username}` : `/user/${session.user.email?.split("@")[0]}`}
-                    className="flex items-center space-x-2 hover:opacity-80 transition whitespace-nowrap"
+                    className="flex items-center space-x-2 whitespace-nowrap transition hover:opacity-80"
                   >
                     {session.user.image ? (
                       <Image
@@ -117,7 +122,7 @@ export default function Navbar() {
                         </span>
                       </div>
                     )}
-                    <span className="text-gray-700 dark:text-gray-300 hidden lg:inline">
+                    <span className="hidden text-[#ccc] lg:inline">
                       {session.user.name || session.user.email}
                     </span>
                   </Link>
@@ -164,7 +169,7 @@ export default function Navbar() {
                       }
                     }
                   }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition whitespace-nowrap flex-shrink-0"
+                  className="flex-shrink-0 whitespace-nowrap rounded-md bg-[#FF6B6B] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#ff8585]"
                   style={{ minWidth: "80px", display: "inline-block" }}
                 >
                   로그아웃
@@ -174,7 +179,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => router.push("/auth/signin")}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition whitespace-nowrap flex-shrink-0"
+                className="flex-shrink-0 whitespace-nowrap rounded-md bg-[#FF6B6B] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#ff8585]"
               >
                 로그인
               </button>

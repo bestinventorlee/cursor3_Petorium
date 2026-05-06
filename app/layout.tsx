@@ -6,6 +6,20 @@ import BottomNavigation from "@/components/BottomNavigation";
 import WebVitalsReporter from "@/components/WebVitalsReporter";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import RegisterServiceWorker from "./register-sw";
+import { DM_Sans, Syne } from "next/font/google";
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  variable: "--font-syne",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Petorium - Short Video Platform",
@@ -27,7 +41,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: "#2563eb",
+  themeColor: "#FF6B6B",
 };
 
 export default function RootLayout({
@@ -37,7 +51,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>
+      <body
+        className={`${dmSans.variable} ${syne.variable} font-sans antialiased bg-[#050505] text-[#f5f5f5]`}
+      >
         <Providers>
           <RegisterServiceWorker />
           <WebVitalsReporter />

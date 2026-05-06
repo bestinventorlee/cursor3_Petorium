@@ -8,9 +8,17 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-dm-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-syne)", "var(--font-dm-sans)", "sans-serif"],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        coral: {
+          DEFAULT: "#FF6B6B",
+          muted: "rgba(255, 107, 107, 0.15)",
+        },
       },
       screens: {
         'xs': '475px',

@@ -174,7 +174,7 @@ export default function SearchBar({
             }
           }}
           placeholder={placeholder}
-          className="w-full px-3 sm:px-4 py-2 pl-8 sm:pl-10 pr-8 sm:pr-10 text-sm sm:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          className="w-full rounded-full border border-[#333] bg-[#111] px-3 py-2 pl-8 pr-8 text-sm text-[#eee] placeholder:text-[#666] focus:outline-none focus:ring-2 focus:ring-[#FF6B6B] sm:px-4 sm:pl-10 sm:pr-10 sm:text-base"
         />
         <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
           <svg

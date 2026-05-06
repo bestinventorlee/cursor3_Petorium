@@ -26,6 +26,8 @@ interface VideoInteractionsProps {
   layout?: "vertical" | "horizontal"; // 피드용 세로, 상세 페이지용 가로
   onOpenCommentModal?: (videoId: string) => void;
   onOpenShareModal?: (videoId: string) => void;
+  /** 와이어프레임 스타일: 이모지 액션 바, 아바타·저장 숨김 */
+  visualVariant?: "default" | "pawreel";
 }
 
 export default function VideoInteractions({
@@ -45,6 +47,7 @@ export default function VideoInteractions({
   layout = "vertical", // 기본값은 세로 (피드용)
   onOpenCommentModal,
   onOpenShareModal,
+  visualVariant = "default",
 }: VideoInteractionsProps) {
   const { user } = useAuth();
   const [likes, setLikes] = useState(initialLikes);
@@ -170,6 +173,97 @@ export default function VideoInteractions({
     hover: { scale: 1.1 },
     tap: { scale: 0.9 },
   };
+
+  if (visualVariant === "pawreel") {
+    const countColor = isLiked ? "#FF6B6B" : "#fff";
+    return (
+      <div className="flex flex-col items-center gap-5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleLike();
+          }}
+          className="flex flex-col items-center gap-0.5"
+        >
+          <span
+            className="text-[28px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] transition-transform"
+            style={{ transform: isLiked ? "scale(1.15)" : "scale(1)" }}
+          >
+            {isLiked ? "❤️" : "🤍"}
+          </span>
+          <span
+            className="text-[11px] font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+            style={{ color: countColor }}
+          >
+            {formatCount(likes)}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (onOpenCommentModal) {
+              onOpenCommentModal(videoId);
+            } else {
+              setShowCommentModal(true);
+            }
+            if (onComment) onComment();
+          }}
+          className="relative z-10 flex flex-col items-center gap-0.5"
+        >
+          <span className="text-[28px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">💬</span>
+          <span className="text-[11px] font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+            {formatCount(initialComments)}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (onOpenShareModal) {
+              onOpenShareModal(videoId);
+            } else {
+              handleShare();
+            }
+          }}
+          className="relative z-10 flex flex-col items-center gap-0.5"
+        >
+          <span className="text-[28px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">↗️</span>
+          <span className="text-[11px] font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+            공유
+          </span>
+        </button>
+
+        <button type="button" className="flex flex-col items-center gap-0.5 opacity-90">
+          <span className="text-[28px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">⋯</span>
+        </button>
+
+        {!onOpenShareModal && showShareModal && (
+          <ShareModal
+            key={`share-${videoId}`}
+            videoId={videoId}
+            videoTitle={`@${username}의 비디오`}
+            videoThumbnail={undefined}
+            isOpen={showShareModal}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+        {!onOpenCommentModal && showCommentModal && (
+          <CommentModal
+            key={`comment-${videoId}`}
+            videoId={videoId}
+            isOpen={showCommentModal}
+            onClose={() => setShowCommentModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-end space-y-6">

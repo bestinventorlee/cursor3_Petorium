@@ -107,8 +107,8 @@ export default function BottomNavigation() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 md:hidden">
-      <div className="flex items-center justify-around h-16">
+    <nav className="global-bottom-nav fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/70 backdrop-blur-[16px] md:hidden">
+      <div className="safe-bottom flex h-16 items-center justify-around pb-[env(safe-area-inset-bottom)]">
         {navItems.map((item) => {
           if (item.requireAuth && !isAuthenticated) {
             return null;
@@ -126,9 +126,7 @@ export default function BottomNavigation() {
               <motion.div
                 whileTap={{ scale: 0.9 }}
                 className={`flex flex-col items-center justify-center ${
-                  active
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400"
+                  active ? "text-[#FF6B6B]" : "text-[#666]"
                 }`}
               >
                 {item.icon}
@@ -137,7 +135,7 @@ export default function BottomNavigation() {
               {active && (
                 <motion.div
                   layoutId="bottom-nav-indicator"
-                  className="absolute top-0 left-0 right-0 h-1 bg-blue-600 dark:bg-blue-400"
+                  className="absolute left-0 right-0 top-0 h-1 bg-[#FF6B6B]"
                   initial={false}
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />

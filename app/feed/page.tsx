@@ -21,6 +21,12 @@ interface Video {
     likes: number;
     comments: number;
   };
+  metrics?: {
+    likes: number;
+    comments: number;
+    views: number;
+  };
+  hashtags?: { id: string; name: string }[];
 }
 
 export default function FeedPage() {
