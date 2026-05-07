@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev -H 0.0.0.0",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
@@ -28,6 +29,7 @@
     "next": "^14.2.0",
     "next-auth": "^4.24.7",
     "nodemailer": "^7.0.13",
+    "prisma": "^5.19.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-intersection-observer": "^9.5.3",
@@ -52,7 +54,6 @@
     "postcss": "^8.4.38",
     "prettier": "^3.3.0",
     "prettier-plugin-tailwindcss": "^0.5.11",
-    "prisma": "^5.19.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.5.0"
   }
