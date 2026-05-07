@@ -120,6 +120,24 @@ export default function ResponsiveVideoFeed({
     string | null
   >(null);
 
+  /** 마지막·첫 슬라이드에서 넘길 때 살짝 튕기는 오프셋(px) */
+  const [bouncePx, setBouncePx] = useState(0);
+  const [feedHint, setFeedHint] = useState<string | null>(null);
+  const hintClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMoreRef = useRef(hasMore);
+  const loadingRef = useRef(loading);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+    loadingRef.current = loading;
+  }, [hasMore, loading]);
+
+  useEffect(() => {
+    return () => {
+      if (hintClearTimerRef.current) clearTimeout(hintClearTimerRef.current);
+    };
+  }, []);
+
   const filteredVideos = useMemo(
     () => filterVideosByTag(videos, activeTag),
     [videos, activeTag]
@@ -181,21 +199,51 @@ export default function ResponsiveVideoFeed({
     }
   }, [videos.length, loading, loadMoreVideos]);
 
+  const scheduleHintClear = useCallback((ms: number) => {
+    if (hintClearTimerRef.current) clearTimeout(hintClearTimerRef.current);
+    hintClearTimerRef.current = setTimeout(() => {
+      setFeedHint(null);
+      hintClearTimerRef.current = null;
+    }, ms);
+  }, []);
+
   const handleSwipeUp = useCallback(() => {
     setCurrentIndex((prevIndex) => {
       if (prevIndex < feedItems.length - 1) {
         return prevIndex + 1;
       }
+      queueMicrotask(() => {
+        setBouncePx(-52);
+        window.setTimeout(() => setBouncePx(0), 280);
+        const ld = loadingRef.current;
+        const hm = hasMoreRef.current;
+        if (ld) {
+          setFeedHint("콘텐츠를 불러오는 중이에요");
+          scheduleHintClear(2000);
+        } else if (hm) {
+          setFeedHint("곧 이어질 콘텐츠가 있어요");
+          scheduleHintClear(2200);
+        } else {
+          setFeedHint("더 불러올 콘텐츠가 없어요");
+          scheduleHintClear(2800);
+        }
+      });
       return prevIndex;
     });
-  }, [feedItems.length]);
+  }, [feedItems.length, scheduleHintClear]);
 
   const handleSwipeDown = useCallback(() => {
     setCurrentIndex((prevIndex) => {
       if (prevIndex > 0) return prevIndex - 1;
+      queueMicrotask(() => {
+        setBouncePx(52);
+        window.setTimeout(() => setBouncePx(0), 280);
+        setFeedHint("첫 번째 콘텐츠예요");
+        scheduleHintClear(2200);
+      });
       return prevIndex;
     });
-  }, []);
+  }, [scheduleHintClear]);
 
   useEffect(() => {
     let maxVi = -1;
@@ -451,7 +499,7 @@ export default function ResponsiveVideoFeed({
         <div
           className="flex h-full w-full flex-col transition-transform duration-200 ease-out will-change-transform"
           style={{
-            transform: `translateY(-${currentIndex * 780}px)`,
+            transform: `translateY(calc(-${currentIndex * 780}px + ${bouncePx}px))`,
           }}
         >
           {feedItems.map((item) => renderFeedSlide(item))}
@@ -524,6 +572,17 @@ export default function ResponsiveVideoFeed({
     );
   }
 
+  const feedHintToast =
+    feedHint && (
+      <div
+        className="pointer-events-none absolute bottom-28 left-1/2 z-[130] max-w-[min(90vw,320px)] -translate-x-1/2 rounded-full bg-black/75 px-5 py-2.5 text-center text-sm text-white shadow-lg backdrop-blur-md md:bottom-32"
+        role="status"
+        aria-live="polite"
+      >
+        {feedHint}
+      </div>
+    );
+
   if (isMobile) {
     return (
       <div className="relative h-[100dvh] w-full overflow-hidden bg-black">
@@ -535,12 +594,13 @@ export default function ResponsiveVideoFeed({
           <div
             className="flex h-full w-full flex-col transition-transform duration-200 ease-out will-change-transform"
             style={{
-              transform: `translateY(-${currentIndex * 100}dvh)`,
+              transform: `translateY(calc(-${currentIndex * 100}dvh + ${bouncePx}px))`,
             }}
           >
             {feedItems.map((item) => renderFeedSlide(item))}
           </div>
         </div>
+        {feedHintToast}
         {loading && (
           <div className="absolute bottom-20 left-1/2 z-[110] -translate-x-1/2 text-sm text-white/80">
             불러오는 중...
@@ -578,6 +638,15 @@ export default function ResponsiveVideoFeed({
             style={{ touchAction: "none" }}
           >
             {phoneChrome}
+            {feedHint && (
+              <div
+                className="pointer-events-none absolute bottom-24 left-1/2 z-[130] max-w-[280px] -translate-x-1/2 rounded-full bg-black/80 px-4 py-2 text-center text-xs text-white shadow-lg backdrop-blur-sm"
+                role="status"
+                aria-live="polite"
+              >
+                {feedHint}
+              </div>
+            )}
           </div>
         }
         rightPanel={rightPanel}
