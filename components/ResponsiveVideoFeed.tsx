@@ -9,6 +9,7 @@ import CommentModal from "./CommentModal";
 import ShareModal from "./ShareModal";
 import PetoriumFeedShell from "./PetoriumFeedShell";
 import AdSlotCard from "./AdSlotCard";
+import FeedSwipeLayer from "./FeedSwipeLayer";
 import { withBasePath } from "@/lib/base-path";
 
 interface Video {
@@ -225,7 +226,7 @@ export default function ResponsiveVideoFeed({
 
     let accumulatedDelta = 0;
     let wheelTimeout: NodeJS.Timeout | null = null;
-    const SCROLL_THRESHOLD = 80;
+    const SCROLL_THRESHOLD = 48;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -239,9 +240,9 @@ export default function ResponsiveVideoFeed({
         } else {
           setTimeout(() => {
             accumulatedDelta = 0;
-          }, 200);
+          }, 120);
         }
-      }, 40);
+      }, 16);
     };
 
     el.addEventListener("wheel", handleWheel, { passive: false });
@@ -324,7 +325,13 @@ export default function ResponsiveVideoFeed({
             isMobile ? "h-[100dvh]" : "h-[780px]"
           }`}
         >
-          <AdSlotCard />
+          <FeedSwipeLayer
+            onSwipeUp={handleSwipeUp}
+            onSwipeDown={handleSwipeDown}
+            className="relative h-full w-full min-h-0"
+          >
+            <AdSlotCard />
+          </FeedSwipeLayer>
         </div>
       );
     }
@@ -441,7 +448,7 @@ export default function ResponsiveVideoFeed({
         style={{ touchAction: "none" }}
       >
         <div
-          className="flex h-full w-full flex-col transition-transform duration-300 ease-out"
+          className="flex h-full w-full flex-col transition-transform duration-200 ease-out will-change-transform"
           style={{
             transform: `translateY(-${currentIndex * 780}px)`,
           }}
@@ -525,7 +532,7 @@ export default function ResponsiveVideoFeed({
           style={{ touchAction: "none" }}
         >
           <div
-            className="flex h-full w-full flex-col transition-transform duration-300 ease-out"
+            className="flex h-full w-full flex-col transition-transform duration-200 ease-out will-change-transform"
             style={{
               transform: `translateY(-${currentIndex * 100}dvh)`,
             }}
