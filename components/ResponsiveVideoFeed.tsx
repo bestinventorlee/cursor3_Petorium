@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import Link from "next/link";
 import MobileVideoPlayer from "./MobileVideoPlayer";
 import VideoPlayerFeed from "./VideoPlayerFeed";
@@ -99,6 +106,74 @@ function petChipLabel(video: Video): string {
     if (found) return found;
   }
   return video.hashtags?.[0]?.name ?? "Pet";
+}
+
+/** 피드 캡션: 2줄 클램프 + 넘치면 더보기/접기 (펼침 시 스크롤) */
+function FeedCaptionBlock({
+  text,
+  videoId,
+  isMobile,
+}: {
+  text: string;
+  videoId: string;
+  isMobile: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const measureRef = useRef<HTMLParagraphElement>(null);
+  const [showToggle, setShowToggle] = useState(false);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [videoId]);
+
+  useLayoutEffect(() => {
+    const el = measureRef.current;
+    if (!el) return;
+
+    const update = () => {
+      if (expanded) {
+        setShowToggle(true);
+        return;
+      }
+      setShowToggle(el.scrollHeight > el.clientHeight + 2);
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, videoId, expanded]);
+
+  return (
+    <div className="mb-2 min-w-0">
+      <p
+        ref={measureRef}
+        style={
+          expanded ? { touchAction: isMobile ? "pan-y" : undefined } : undefined
+        }
+        className={`text-[13px] leading-snug text-[#eee] ${
+          expanded
+            ? "max-h-[min(42vh,320px)] overflow-y-auto overscroll-contain pr-0.5"
+            : "line-clamp-2"
+        }`}
+      >
+        {text}
+      </p>
+      {showToggle && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+          className="mt-1 text-[12px] font-semibold text-white/90 underline decoration-white/40 underline-offset-2 hover:text-white"
+        >
+          {expanded ? "접기" : "더보기"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function ResponsiveVideoFeed({
@@ -315,7 +390,14 @@ export default function ResponsiveVideoFeed({
         {petChipLabel(video)}
       </div>
       {/* 바깥은 pointer-events-none — 빈 여백 스와이프가 아래 비디오 플레이어로 전달되도록 */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 flex items-end justify-between p-4 pb-6">
+      {/* 모바일: 글로벌 하단 네비(h-16)+세이프영역 위로 올림 / 데스크톱 프레임: 폰 하단 바 높이만큼 */}
+      <div
+        className={`pointer-events-none absolute bottom-0 left-0 right-0 z-10 flex items-end justify-between p-4 ${
+          isMobile
+            ? "pb-[calc(4rem+env(safe-area-inset-bottom,0px)+0.75rem)]"
+            : "pb-[4.75rem]"
+        }`}
+      >
         <div className="pointer-events-auto min-w-0 flex-1 pr-3">
           <Link
             href={`/user/${video.user.username}`}
@@ -323,9 +405,11 @@ export default function ResponsiveVideoFeed({
           >
             @{video.user.username}
           </Link>
-          <p className="mb-2 line-clamp-2 text-[13px] leading-snug text-[#eee]">
-            {video.description || video.title}
-          </p>
+          <FeedCaptionBlock
+            text={video.description || video.title}
+            videoId={video.id}
+            isMobile={isMobile}
+          />
           <div className="flex flex-wrap gap-2">
             <span className="text-[12px] font-semibold" style={{ color: accent }}>
               #반려동물
