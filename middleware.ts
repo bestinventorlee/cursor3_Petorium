@@ -4,6 +4,22 @@ import { rateLimit } from "./lib/rate-limit";
 import { validateCSRF } from "./lib/csrf";
 import { getToken } from "next-auth/jwt";
 
+/** next.config basePath와 동일하게 유지 — 미들웨어 pathname은 배포에 따라 /petorium/api/... 형태일 수 있음 */
+const PUBLIC_BASE_PATH =
+  process.env.NEXT_PUBLIC_BASE_PATH ||
+  (process.env.NODE_ENV === "production" ? "/petorium" : "");
+const BASE_PATH_STRIP = PUBLIC_BASE_PATH.replace(/\/$/, "");
+
+function pathnameWithoutBase(pathname: string): string {
+  if (!BASE_PATH_STRIP) return pathname;
+  if (pathname === BASE_PATH_STRIP) return "/";
+  if (pathname.startsWith(`${BASE_PATH_STRIP}/`)) {
+    const rest = pathname.slice(BASE_PATH_STRIP.length);
+    return rest || "/";
+  }
+  return pathname;
+}
+
 // Rate limit configuration per route
 const rateLimitConfigs: Record<string, { windowMs: number; maxRequests: number }> = {
   "/api/videos/upload": { windowMs: 60000, maxRequests: 5 }, // 5 uploads per minute
@@ -16,33 +32,36 @@ const rateLimitConfigs: Record<string, { windowMs: number; maxRequests: number }
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const path = pathnameWithoutBase(pathname);
 
   // 프로필 페이지 접근 시 세션 확인
-  if (pathname === "/profile") {
+  if (path === "/profile") {
     const token = await getToken({ 
       req: request,
       secret: process.env.NEXTAUTH_SECRET,
     });
 
     if (!token) {
-      // 세션이 없으면 로그인 페이지로 리다이렉트
-      const signInUrl = new URL("/auth/signin", request.url);
-      signInUrl.searchParams.set("callbackUrl", "/profile");
+      const base = BASE_PATH_STRIP;
+      const signInUrl = new URL(
+        `${request.nextUrl.origin}${base}/auth/signin`
+      );
+      signInUrl.searchParams.set("callbackUrl", `${base}/profile`);
       signInUrl.searchParams.set("logout", "true");
       return NextResponse.redirect(signInUrl);
     }
   }
 
   // Apply rate limiting to API routes
-  if (pathname.startsWith("/api/")) {
-    const config = rateLimitConfigs[pathname] || rateLimitConfigs.default;
+  if (path.startsWith("/api/")) {
+    const config = rateLimitConfigs[path] || rateLimitConfigs.default;
     const result = await rateLimit(request, {
       ...config,
       keyGenerator: (req) => {
         // Use IP address or user ID if authenticated
         const forwarded = req.headers.get("x-forwarded-for");
         const ip = forwarded ? forwarded.split(",")[0] : req.headers.get("x-real-ip") || "unknown";
-        return `${pathname}:${ip}`;
+        return `${path}:${ip}`;
       },
     });
 
@@ -70,11 +89,17 @@ export async function middleware(request: NextRequest) {
       const skipCSRF = [
         "/api/auth/callback",
         "/api/auth/[...nextauth]",
+        "/api/auth/signin",
+        "/api/auth/signout",
+        "/api/auth/logout",
+        "/api/auth/register",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password",
         "/api/webhooks",
         "/api/csrf-token", // CSRF token endpoint itself
         "/api/videos/upload", // 비디오 업로드는 처리 시간이 길어 CSRF 검증 건너뜀 (서버에서 인증 확인)
         "/api/analytics/web-vitals", // Web Vitals는 공개 API (CSRF 토큰 없이 호출됨)
-      ].some((route) => pathname.startsWith(route));
+      ].some((route) => path.startsWith(route));
 
       // Skip CSRF in development for easier testing
       const isDevelopment = process.env.NODE_ENV === "development";
@@ -82,7 +107,7 @@ export async function middleware(request: NextRequest) {
       if (!skipCSRF && !isDevelopment) {
         const isValid = await validateCSRF(request);
         if (!isValid) {
-          console.warn(`[CSRF] Validation failed for ${pathname}`);
+          console.warn(`[CSRF] Validation failed for ${path}`);
           return NextResponse.json(
             { error: "Invalid CSRF token" },
             { status: 403 }

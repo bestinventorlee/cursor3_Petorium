@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { hashPasswordResetToken } from "@/lib/password-reset";
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, "토큰이 필요합니다"),
@@ -15,7 +16,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // 입력 검증
     const validationResult = resetPasswordSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
@@ -25,24 +25,38 @@ export async function POST(request: NextRequest) {
     }
 
     const { token, password } = validationResult.data;
+    const tokenHash = hashPasswordResetToken(token);
 
-    // 토큰 검증 (실제로는 데이터베이스에서 토큰을 조회해야 합니다)
-    // 여기서는 간단한 예시만 제공합니다
-    // 프로덕션에서는 PasswordResetToken 테이블에서 토큰을 조회하고 만료 시간을 확인해야 합니다
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
 
-    // 임시로 토큰에서 이메일을 추출하는 방식 (실제로는 안전하지 않음)
-    // 실제 구현에서는 토큰을 데이터베이스에 저장하고 조회해야 합니다
+    if (!record) {
+      return NextResponse.json(
+        { error: "유효하지 않거나 이미 사용된 재설정 링크입니다." },
+        { status: 400 }
+      );
+    }
 
-    // 비밀번호 해시
+    if (record.expiresAt.getTime() < Date.now()) {
+      await prisma.passwordResetToken.delete({ where: { id: record.id } });
+      return NextResponse.json(
+        { error: "재설정 링크가 만료되었습니다. 다시 요청해 주세요." },
+        { status: 400 }
+      );
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // 여기서는 토큰 검증 로직이 필요합니다
-    // 실제로는 다음과 같이 구현해야 합니다:
-    // 1. PasswordResetToken 테이블에서 토큰 조회
-    // 2. 만료 시간 확인
-    // 3. 사용자 ID 가져오기
-    // 4. 비밀번호 업데이트
-    // 5. 토큰 삭제
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { password: hashedPassword },
+      }),
+      prisma.passwordResetToken.deleteMany({
+        where: { userId: record.userId },
+      }),
+    ]);
 
     return NextResponse.json({
       message: "비밀번호가 성공적으로 재설정되었습니다",
@@ -55,4 +69,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSession, signIn, signOut, SessionProvider } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, clearCSRFToken } from "@/lib/api-client";
 import { withBasePath } from "@/lib/base-path";
 
 interface User {
@@ -186,7 +186,8 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
       setIsLoggingOut(true);
       setForceUnauthenticated(true);
       console.log("[Auth] Starting logout process...");
-      
+      clearCSRFToken();
+
       // 0. 로그아웃 플래그를 먼저 설정 (세션이 재생성되는 것을 방지)
       if (typeof window !== "undefined") {
         localStorage.setItem("_logout_in_progress", "true");
@@ -291,7 +292,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
           // 완전히 새로운 페이지로 이동하여 세션 상태 초기화
           // 로그아웃 플래그를 명확히 전달
           window.location.replace(withBasePath(`/auth/signin?logout=true&t=${timestamp}&nocache=${Math.random()}`));
-        }, 2000); // 지연 시간 증가
+        }, 600);
       }
     } catch (error) {
       console.error("[Auth] Logout error:", error);

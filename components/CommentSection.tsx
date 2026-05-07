@@ -8,6 +8,8 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useCommentSocket } from "./CommentSocket";
+import { apiFetch } from "@/lib/api-client";
+import { withBasePath } from "@/lib/base-path";
 
 interface Comment {
   id: string;
@@ -81,7 +83,10 @@ export default function CommentSection({
   const fetchComments = async (pageNum: number = 1) => {
     try {
       const response = await fetch(
-        `/api/videos/${videoId}/comments?page=${pageNum}&limit=20`
+        withBasePath(
+          `/api/videos/${videoId}/comments?page=${pageNum}&limit=20`
+        ),
+        { credentials: "include" }
       );
       const data = await response.json();
 
@@ -106,7 +111,7 @@ export default function CommentSection({
     const content = newComment.trim();
 
     try {
-      const response = await fetch(`/api/videos/${videoId}/comments`, {
+      const response = await apiFetch(`/api/videos/${videoId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
@@ -137,7 +142,7 @@ export default function CommentSection({
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/videos/${videoId}/comments`, {
+      const response = await apiFetch(`/api/videos/${videoId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: replyContent.trim(), parentId }),
@@ -176,7 +181,7 @@ export default function CommentSection({
     if (!user) return;
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/videos/${videoId}/comments/${commentId}`,
         {
           method: "DELETE",
@@ -194,7 +199,10 @@ export default function CommentSection({
   const loadMoreReplies = async (commentId: string) => {
     try {
       const response = await fetch(
-        `/api/videos/${videoId}/comments/${commentId}?page=1&limit=10`
+        withBasePath(
+          `/api/videos/${videoId}/comments/${commentId}?page=1&limit=10`
+        ),
+        { credentials: "include" }
       );
       const data = await response.json();
 

@@ -38,6 +38,7 @@ model User {
   accounts      Account[]
   reports       Report[]  @relation("ReportReporter") // Reports filed by this user
   reportedBy    Report[]  @relation("ReportTarget") // Reports filed against this user
+  passwordResetTokens PasswordResetToken[]
 
   @@index([username])
   @@index([email])
@@ -231,4 +232,18 @@ model SavedVideo {
   @@index([userId])
   @@index([createdAt])
   @@map("saved_videos")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }

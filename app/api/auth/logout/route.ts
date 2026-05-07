@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { sessionCookiePaths } from "@/lib/auth-cookie-paths";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,18 +25,14 @@ export async function POST(request: NextRequest) {
     ];
 
     const isSecure = process.env.NEXTAUTH_URL?.startsWith("https://") ?? false;
+    const paths = sessionCookiePaths();
 
-    // 각 쿠키를 여러 경로에서 삭제
     cookieNames.forEach((name) => {
-      // Next.js cookies API를 사용하여 삭제
       response.cookies.delete(name);
-      
-      // 여러 경로에서 명시적으로 삭제 시도
-      const paths = ["/", "/api", "/api/auth"];
       paths.forEach((path) => {
         response.cookies.set(name, "", {
           expires: new Date(0),
-          path: path,
+          path,
           httpOnly: true,
           sameSite: "lax",
           secure: isSecure,
@@ -44,25 +41,14 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    // Set-Cookie 헤더를 직접 추가하여 확실하게 삭제
     const setCookieHeaders: string[] = [];
     cookieNames.forEach((name) => {
-      // 여러 경로와 옵션으로 삭제 헤더 추가
-      // Domain을 명시하지 않으면 현재 도메인에서만 삭제됨
-      setCookieHeaders.push(
-        `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax; Max-Age=0${isSecure ? "; Secure" : ""}`,
-        `${name}=; Path=/api; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax; Max-Age=0${isSecure ? "; Secure" : ""}`,
-        `${name}=; Path=/api/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax; Max-Age=0${isSecure ? "; Secure" : ""}`,
-        `${name}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`,
-        // Domain 없이도 삭제 시도
-        `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0`,
-        `${name}=; Path=/api; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0`,
-        `${name}=; Path=/api/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0`
-      );
+      paths.forEach((path) => {
+        setCookieHeaders.push(
+          `${name}=; Path=${path}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}; Max-Age=0`
+        );
+      });
     });
-
-    // 기존 Set-Cookie 헤더 가져오기
-    const existingCookies = response.headers.getSetCookie();
     
     // 모든 쿠키 삭제 헤더 추가
     setCookieHeaders.forEach((cookie) => {

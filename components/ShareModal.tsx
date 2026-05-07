@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { withBasePath } from "@/lib/base-path";
 
 interface ShareModalProps {
   videoId: string;
@@ -30,7 +31,9 @@ export default function ShareModal({
 
   const fetchShareData = async () => {
     try {
-      const response = await fetch(`/api/videos/${videoId}/share`);
+      const response = await fetch(withBasePath(`/api/videos/${videoId}/share`), {
+        credentials: "include",
+      });
       if (response.ok) {
         const data = await response.json();
         setShareData(data);

@@ -87,6 +87,7 @@ export async function apiFetch(
   }
 
   return fetch(withBasePath(url), {
+    credentials: "include",
     ...options,
     headers,
   });

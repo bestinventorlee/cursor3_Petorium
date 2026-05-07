@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import ShareModal from "./ShareModal";
 import CommentModal from "./CommentModal";
-import { withBasePath } from "@/lib/base-path";
+import { apiFetch } from "@/lib/api-client";
 
 interface VideoInteractionsProps {
   videoId: string;
@@ -80,7 +80,7 @@ export default function VideoInteractions({
     setLikes((prev) => (newLikedState ? prev + 1 : prev - 1));
 
     try {
-      const response = await fetch(withBasePath(`/api/videos/${videoId}/like`), {
+      const response = await apiFetch(`/api/videos/${videoId}/like`, {
         method: "POST",
       });
 
@@ -109,7 +109,7 @@ export default function VideoInteractions({
     setIsFollowing(newFollowingState); // Optimistic update
 
     try {
-      const response = await fetch(withBasePath(`/api/users/by-id/${userId}/follow`), {
+      const response = await apiFetch(`/api/users/by-id/${userId}/follow`, {
         method: newFollowingState ? "POST" : "DELETE",
       });
 
@@ -144,7 +144,7 @@ export default function VideoInteractions({
     setIsSaved(newSavedState);
 
     try {
-      const response = await fetch(withBasePath(`/api/videos/${videoId}/save`), {
+      const response = await apiFetch(`/api/videos/${videoId}/save`, {
         method: "POST",
       });
 
