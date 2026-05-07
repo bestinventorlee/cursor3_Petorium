@@ -261,12 +261,13 @@ export default function ResponsiveVideoFeed({
         aria-hidden
       />
       <div
-        className="absolute right-4 top-4 z-[5] rounded-full px-3 py-1 text-[11px] font-bold tracking-wide text-white"
+        className="pointer-events-none absolute right-4 top-4 z-[5] rounded-full px-3 py-1 text-[11px] font-bold tracking-wide text-white"
         style={{ backgroundColor: `${accent}CC` }}
       >
         {petChipLabel(video)}
       </div>
-      <div className="absolute bottom-0 left-0 right-0 z-10 flex items-end justify-between p-4 pb-6">
+      {/* 바깥은 pointer-events-none — 빈 여백 스와이프가 아래 비디오 플레이어로 전달되도록 */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 flex items-end justify-between p-4 pb-6">
         <div className="pointer-events-auto min-w-0 flex-1 pr-3">
           <Link
             href={`/user/${video.user.username}`}

@@ -159,25 +159,26 @@ export function setupTouchGestures(
       }
       state.lastTapTime = endTime;
 
-      // Check for swipe
-      if (distance > SWIPE_THRESHOLD && velocity > SWIPE_VELOCITY_THRESHOLD) {
-        const absX = Math.abs(deltaX);
-        const absY = Math.abs(deltaY);
+      // 스와이프: 세로는 거리만으로 인식(느린 스와이프 포함), 가로는 속도 조건 유지
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
 
-        if (absX > absY) {
-          // Horizontal swipe
+      if (absX > absY) {
+        if (
+          distance > SWIPE_THRESHOLD &&
+          velocity > SWIPE_VELOCITY_THRESHOLD
+        ) {
           if (deltaX > 0 && callbacks.onSwipeRight) {
             callbacks.onSwipeRight();
           } else if (deltaX < 0 && callbacks.onSwipeLeft) {
             callbacks.onSwipeLeft();
           }
-        } else {
-          // Vertical swipe
-          if (deltaY > 0 && callbacks.onSwipeDown) {
-            callbacks.onSwipeDown();
-          } else if (deltaY < 0 && callbacks.onSwipeUp) {
-            callbacks.onSwipeUp();
-          }
+        }
+      } else if (absY > SWIPE_THRESHOLD) {
+        if (deltaY > 0 && callbacks.onSwipeDown) {
+          callbacks.onSwipeDown();
+        } else if (deltaY < 0 && callbacks.onSwipeUp) {
+          callbacks.onSwipeUp();
         }
       }
     }
