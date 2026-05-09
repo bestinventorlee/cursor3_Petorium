@@ -368,8 +368,14 @@ export default function ResponsiveVideoFeed({
         wheelDeltaAccRef.current = 0;
       }
 
+      let deltaY = e.deltaY;
+      // 브라우저별 deltaMode(픽셀/라인/페이지) 차이를 보정
+      if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) deltaY *= 16;
+      else if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE)
+        deltaY *= window.innerHeight;
+
       wheelLastEventAtRef.current = now;
-      wheelDeltaAccRef.current += e.deltaY;
+      wheelDeltaAccRef.current += deltaY;
       if (Math.abs(wheelDeltaAccRef.current) < SCROLL_THRESHOLD) return;
 
       if (wheelDeltaAccRef.current > 0) handleSwipeUp();
