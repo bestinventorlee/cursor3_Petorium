@@ -201,6 +201,11 @@ export default function ResponsiveVideoFeed({
   const hintClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMoreRef = useRef(hasMore);
   const loadingRef = useRef(loading);
+  const wheelDeltaAccRef = useRef(0);
+  const wheelLastAtRef = useRef(0);
+  const mouseDragStartYRef = useRef<number | null>(null);
+  const mouseDragLastYRef = useRef<number | null>(null);
+  const mouseDraggingRef = useRef(false);
 
   useEffect(() => {
     hasMoreRef.current = hasMore;
@@ -347,31 +352,132 @@ export default function ResponsiveVideoFeed({
     const el = containerRef.current;
     if (!el) return;
 
-    let accumulatedDelta = 0;
-    let wheelTimeout: NodeJS.Timeout | null = null;
-    const SCROLL_THRESHOLD = 48;
+    const SCROLL_THRESHOLD = 28;
+    const COOLDOWN_MS = 320;
+    const RESET_GAP_MS = 220;
 
     const handleWheel = (e: WheelEvent) => {
+      // 가로 제스처(트랙패드 좌우 스와이프 등)는 무시
+      if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
       e.preventDefault();
-      accumulatedDelta += e.deltaY;
-      if (wheelTimeout) clearTimeout(wheelTimeout);
-      wheelTimeout = setTimeout(() => {
-        if (Math.abs(accumulatedDelta) >= SCROLL_THRESHOLD) {
-          if (accumulatedDelta > 0) handleSwipeUp();
-          else handleSwipeDown();
-          accumulatedDelta = 0;
-        } else {
-          setTimeout(() => {
-            accumulatedDelta = 0;
-          }, 120);
-        }
-      }, 16);
+
+      const now = performance.now();
+      if (now - wheelLastAtRef.current < COOLDOWN_MS) return;
+      if (now - wheelLastAtRef.current > RESET_GAP_MS) {
+        wheelDeltaAccRef.current = 0;
+      }
+
+      wheelDeltaAccRef.current += e.deltaY;
+      if (Math.abs(wheelDeltaAccRef.current) < SCROLL_THRESHOLD) return;
+
+      if (wheelDeltaAccRef.current > 0) handleSwipeUp();
+      else handleSwipeDown();
+
+      wheelLastAtRef.current = now;
+      wheelDeltaAccRef.current = 0;
     };
 
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", handleWheel);
-      if (wheelTimeout) clearTimeout(wheelTimeout);
+    };
+  }, [handleSwipeUp, handleSwipeDown]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowDown" || e.key === "PageDown" || e.key === " ") {
+        e.preventDefault();
+        handleSwipeUp();
+      } else if (e.key === "ArrowUp" || e.key === "PageUp") {
+        e.preventDefault();
+        handleSwipeDown();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSwipeUp, handleSwipeDown]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const DRAG_THRESHOLD = 56;
+
+    const clearDragState = () => {
+      mouseDragStartYRef.current = null;
+      mouseDragLastYRef.current = null;
+      mouseDraggingRef.current = false;
+      el.classList.remove("cursor-grabbing");
+      el.classList.add("cursor-grab");
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "BUTTON" ||
+          target.tagName === "A" ||
+          target.closest("button") ||
+          target.closest("a"))
+      ) {
+        return;
+      }
+      mouseDragStartYRef.current = e.clientY;
+      mouseDragLastYRef.current = e.clientY;
+      mouseDraggingRef.current = true;
+      el.classList.remove("cursor-grab");
+      el.classList.add("cursor-grabbing");
+      e.preventDefault();
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!mouseDraggingRef.current || mouseDragStartYRef.current == null) return;
+      mouseDragLastYRef.current = e.clientY;
+    };
+
+    const handleMouseUp = () => {
+      if (!mouseDraggingRef.current || mouseDragStartYRef.current == null) return;
+      const startY = mouseDragStartYRef.current;
+      const endY = mouseDragLastYRef.current ?? startY;
+      const deltaY = endY - startY;
+
+      if (Math.abs(deltaY) >= DRAG_THRESHOLD) {
+        if (deltaY < 0) handleSwipeUp();
+        else handleSwipeDown();
+      }
+
+      clearDragState();
+    };
+
+    const handleMouseLeave = () => {
+      if (mouseDraggingRef.current) clearDragState();
+    };
+
+    el.classList.add("cursor-grab");
+    el.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    el.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      el.classList.remove("cursor-grab", "cursor-grabbing");
+      el.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      el.removeEventListener("mouseleave", handleMouseLeave);
     };
   }, [handleSwipeUp, handleSwipeDown]);
 
