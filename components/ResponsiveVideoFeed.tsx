@@ -202,7 +202,8 @@ export default function ResponsiveVideoFeed({
   const hasMoreRef = useRef(hasMore);
   const loadingRef = useRef(loading);
   const wheelDeltaAccRef = useRef(0);
-  const wheelLastAtRef = useRef(0);
+  const wheelLastEventAtRef = useRef(0);
+  const wheelLastSwipeAtRef = useRef(0);
   const mouseDragStartYRef = useRef<number | null>(null);
   const mouseDragLastYRef = useRef<number | null>(null);
   const mouseDraggingRef = useRef(false);
@@ -362,18 +363,19 @@ export default function ResponsiveVideoFeed({
       e.preventDefault();
 
       const now = performance.now();
-      if (now - wheelLastAtRef.current < COOLDOWN_MS) return;
-      if (now - wheelLastAtRef.current > RESET_GAP_MS) {
+      if (now - wheelLastSwipeAtRef.current < COOLDOWN_MS) return;
+      if (now - wheelLastEventAtRef.current > RESET_GAP_MS) {
         wheelDeltaAccRef.current = 0;
       }
 
+      wheelLastEventAtRef.current = now;
       wheelDeltaAccRef.current += e.deltaY;
       if (Math.abs(wheelDeltaAccRef.current) < SCROLL_THRESHOLD) return;
 
       if (wheelDeltaAccRef.current > 0) handleSwipeUp();
       else handleSwipeDown();
 
-      wheelLastAtRef.current = now;
+      wheelLastSwipeAtRef.current = now;
       wheelDeltaAccRef.current = 0;
     };
 
