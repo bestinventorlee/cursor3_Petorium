@@ -185,6 +185,52 @@ npm run build
 npm start
 ```
 
+## Git 배포 후 서버에서 MVP 테스트 시드 실행
+
+테스트용 계정·숏폼 업로드를 자동으로 넣는 스크립트(`scripts/mvp-seed.mjs`)를 **배포된 앱이 실제로 응답하는 URL**에 대해 실행합니다. 스토리지(S3/R2)·DB·`NEXTAUTH`가 서버와 동일하게 동작해야 합니다.
+
+### 1. 저장소 반영 후 서버에서
+
+```bash
+cd /path/to/petorium   # 배포 디렉터리
+git pull
+npm ci                 # 또는 npm install
+```
+
+### 2. 설정 파일은 Git에 올리지 않기
+
+`scripts/mvp-seed.config.json`은 `.gitignore`에 포함되어 있습니다. 서버에서 예시를 복사해 만듭니다.
+
+```bash
+cp scripts/mvp-seed.config.example.json scripts/mvp-seed.config.json
+```
+
+편집 시 특히 다음을 **운영 환경과 동일하게** 맞춥니다.
+
+- **`baseUrl`**: 공개 HTTPS 원본만 (끝에 `/` 없음). 예: `https://your-domain.com`
+- **`publicBasePath`**: `next.config`의 `NEXT_PUBLIC_BASE_PATH`와 같게. 로컬 개발처럼 루트에 배포했으면 `""`, 프로덕션 기본(`/petorium`)이면 `"/petorium"`
+- **`password`**, **`items`**: 사용 권한이 있는 영상만 (15~60초, 직링크 `url` 또는 서버상 `file` 경로)
+
+`NEXTAUTH_URL`은 사용자가 접속하는 주소와 같아야 하며(예: `https://your-domain.com/petorium` 배포 시 전체 public URL), 시드의 `baseUrl` + `publicBasePath` 조합과 **같은 앱**을 가리켜야 쿠키·로그인이 맞습니다.
+
+### 3. 앱이 떠 있는 상태에서 실행
+
+PM2·systemd 등으로 `next start`가 이미 떠 있다고 가정합니다.
+
+```bash
+npm run mvp-seed -- --config scripts/mvp-seed.config.json
+```
+
+로그가 필요하면 `--verbose`를 덧붙입니다.
+
+### 4. 속도 제한(429)
+
+미들웨어에서 가입·업로드 요청 수가 분당 제한됩니다. 한 번에 많은 계정/영상을 넣을 때는 `mvp-seed.config.json`의 `registerDelayMs`, `uploadDelayMs`를 늘리세요.
+
+### 5. 로컬 PC에서 운영 서버만 때리는 경우
+
+서버에 SSH로 올라가지 않아도 됩니다. 노트북에서 Node 18+로 같은 저장소를 두고 `baseUrl`/`publicBasePath`만 운영 URL로 두면, 방화벽에서 해당 API가 열려 있을 때 동일하게 동작합니다.
+
 ## 유용한 명령어
 
 ```bash

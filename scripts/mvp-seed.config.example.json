@@ -1,0 +1,26 @@
+{
+  "$comment": "사용권이 있는 스톡/직접 호스팅 영상만 사용하세요. 업로드 API는 15~60초 길이를 요구합니다.",
+  "baseUrl": "http://localhost:3000",
+  "publicBasePath": "",
+  "userCount": 10,
+  "videosPerUser": 20,
+  "password": "MvpSeedChangeMe!1",
+  "emailLocalPartPrefix": "petmvp",
+  "emailDomain": "mvp-seed.test",
+  "usernamePrefix": "petmvp",
+  "registerDelayMs": 25000,
+  "uploadDelayMs": 14000,
+  "skipExistingUsers": true,
+  "items": [
+    {
+      "file": "./samples/pet-sample-01.mp4",
+      "title": "MVP 시드 샘플 01",
+      "description": "테스트용 업로드"
+    },
+    {
+      "url": "https://example.com/your-licensed-video.mp4",
+      "title": "직접 호스팅 URL 예시",
+      "description": "실제 사용 시 허가된 직접 링크로 교체"
+    }
+  ]
+}

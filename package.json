@@ -13,7 +13,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "mvp-seed": "node scripts/mvp-seed.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.540.0",
