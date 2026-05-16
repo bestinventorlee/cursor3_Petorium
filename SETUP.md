@@ -209,7 +209,10 @@ cp scripts/mvp-seed.config.example.json scripts/mvp-seed.config.json
 
 - **`baseUrl`**: 공개 HTTPS 원본만 (끝에 `/` 없음). 예: `https://your-domain.com`
 - **`publicBasePath`**: `next.config`의 `NEXT_PUBLIC_BASE_PATH`와 같게. 로컬 개발처럼 루트에 배포했으면 `""`, 프로덕션 기본(`/petorium`)이면 `"/petorium"`
-- **`password`**, **`items`**: 사용 권한이 있는 영상만 (15~60초, 직링크 `url` 또는 서버상 `file` 경로)
+- **`password`**: 시드 유저 공통 비밀번호 (6자 이상)
+- **콘텐츠 소스 (택일)**  
+  - **`autoMedia.provider`: `"pexels"`** — 검색어로 Pexels에서 15~60초 클립만 골라 자동 수집·업로드. [API 키](https://www.pexels.com/api/) 발급 후 환경 변수 `PEXELS_API_KEY`(또는 설정의 `apiKeyEnv`)에 넣습니다.  
+  - 또는 **`items`** — 직접 `file` / `url` 목록 (`autoMedia`를 쓰면 `items`는 비워도 됨)
 
 `NEXTAUTH_URL`은 사용자가 접속하는 주소와 같아야 하며(예: `https://your-domain.com/petorium` 배포 시 전체 public URL), 시드의 `baseUrl` + `publicBasePath` 조합과 **같은 앱**을 가리켜야 쿠키·로그인이 맞습니다.
 
@@ -220,6 +223,8 @@ PM2·systemd 등으로 `next start`가 이미 떠 있다고 가정합니다.
 ```bash
 npm run mvp-seed -- --config scripts/mvp-seed.config.json
 ```
+
+Pexels 자동 수집을 쓰는 경우 `.env`에 `PEXELS_API_KEY=` 를 넣거나, 실행 전 셸에서 `export PEXELS_API_KEY=...` 하면 스크립트가 루트 `.env`를 읽어 키를 사용합니다.
 
 로그가 필요하면 `--verbose`를 덧붙입니다.
 

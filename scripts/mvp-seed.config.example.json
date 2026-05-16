@@ -1,5 +1,5 @@
 {
-  "$comment": "사용권이 있는 스톡/직접 호스팅 영상만 사용하세요. 업로드 API는 15~60초 길이를 요구합니다.",
+  "$comment": "자동 수집: autoMedia.provider 가 pexels 이면 Pexels API로 검색·다운로드(15~60초만) 후 업로드. 키: https://www.pexels.com/api/ · 라이선스: https://www.pexels.com/license/",
   "baseUrl": "http://localhost:3000",
   "publicBasePath": "",
   "userCount": 10,
@@ -11,16 +11,15 @@
   "registerDelayMs": 25000,
   "uploadDelayMs": 14000,
   "skipExistingUsers": true,
-  "items": [
-    {
-      "file": "./samples/pet-sample-01.mp4",
-      "title": "MVP 시드 샘플 01",
-      "description": "테스트용 업로드"
-    },
-    {
-      "url": "https://example.com/your-licensed-video.mp4",
-      "title": "직접 호스팅 URL 예시",
-      "description": "실제 사용 시 허가된 직접 링크로 교체"
-    }
-  ]
+  "autoMedia": {
+    "provider": "pexels",
+    "apiKeyEnv": "PEXELS_API_KEY",
+    "queries": ["cat", "dog", "kitten", "puppy", "pet"],
+    "minDuration": 15,
+    "maxDuration": 60,
+    "perQueryPageSize": 15,
+    "maxPagesPerQuery": 30,
+    "betweenApiDelayMs": 1200
+  },
+  "items": []
 }

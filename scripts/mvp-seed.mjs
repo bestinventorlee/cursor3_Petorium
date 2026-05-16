@@ -7,6 +7,10 @@
  * - 서버 업로드 규칙: 길이 15~60초, 최대 100MB (app/api/videos/upload/route.ts)
  * - 로컬: npm run dev 후 실행. 프로덕션 배포 시 publicBasePath 를 NEXT_PUBLIC_BASE_PATH 와 동일하게 설정
  *
+ * 자동 소스 (Pexels): 환경 변수 PEXELS_API_KEY + 설정의 autoMedia 사용 시
+ * 검색어로 허용 라이선스 스톡 영상을 받아 15~60초만 골라 업로드합니다.
+ * https://www.pexels.com/api/ · https://www.pexels.com/license/
+ *
  * 사용법:
  *   npm run mvp-seed -- --config scripts/mvp-seed.config.json
  *
@@ -21,6 +25,31 @@ import { dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** 프로젝트 루트 .env 에서 아직 없는 키만 process.env 에 채움 (외부 의존성 없음) */
+async function loadDotenvIfPresent() {
+  const envPath = resolve(process.cwd(), ".env");
+  try {
+    const text = await readFile(envPath, "utf8");
+    for (const line of text.split(/\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let val = trimmed.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (key && process.env[key] === undefined) process.env[key] = val;
+    }
+  } catch {
+    /* .env 없음 */
+  }
+}
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -166,8 +195,165 @@ async function loadVideoBytes(item, configDir) {
   throw new Error("items 항목에 file 또는 url 이 필요합니다");
 }
 
+/**
+ * Pexels video_files 에서 용량 부담을 줄이기 위해 비교적 작은 mp4 링크 선택
+ * @param {Array<{ file_type?: string, quality?: string, width?: number, link?: string }>} videoFiles
+ */
+function pickPexelsMp4File(videoFiles) {
+  const mp4 = (videoFiles || []).filter(
+    (f) => f && f.file_type === "video/mp4" && f.link
+  );
+  if (mp4.length === 0) return null;
+  mp4.sort((a, b) => (a.width || 99999) - (b.width || 99999));
+  const sd = mp4.find((f) => f.quality === "sd");
+  return sd || mp4[0];
+}
+
+/**
+ * @param {string} apiKey
+ * @param {string} query
+ * @param {number} page
+ * @param {number} perPage
+ */
+async function pexelsVideoSearch(apiKey, query, page, perPage) {
+  const u = new URL("https://api.pexels.com/videos/search");
+  u.searchParams.set("query", query);
+  u.searchParams.set("per_page", String(perPage));
+  u.searchParams.set("page", String(page));
+  const r = await fetch(u, {
+    headers: { Authorization: apiKey },
+  });
+  const text = await r.text();
+  if (!r.ok) {
+    throw new Error(`Pexels 검색 실패 ${r.status}: ${text.slice(0, 400)}`);
+  }
+  return JSON.parse(text);
+}
+
+/**
+ * @param {object} cfg 전체 설정
+ * @param {number} totalNeeded userCount * videosPerUser
+ * @param {{ dryRun: boolean, verbose: boolean }} args
+ */
+async function buildQueueFromPexels(cfg, totalNeeded, args) {
+  const am = cfg.autoMedia || {};
+  const queries = Array.isArray(am.queries) ? am.queries.filter(Boolean) : [];
+  if (queries.length === 0) {
+    console.error(
+      "autoMedia.queries 에 검색어를 1개 이상 넣으세요. (예: cat, dog)"
+    );
+    process.exit(1);
+  }
+
+  if (args.dryRun) {
+    console.log(
+      `[dry-run] Pexels 자동 수집 예정: queries=${queries.join(", ")} · 약 ${totalNeeded}개 (API 키 불필요)`
+    );
+    return Array.from({ length: Math.min(3, totalNeeded) }, (_, i) => ({
+      url: "https://invalid/dry-run",
+      title: `dry-${i}`,
+      description: "",
+    }));
+  }
+
+  const envName = am.apiKeyEnv || "PEXELS_API_KEY";
+  const apiKey = process.env[envName];
+  if (!apiKey || !String(apiKey).trim()) {
+    console.error(
+      `Pexels 자동 수집을 쓰려면 환경 변수 ${envName} 를 설정하세요. (https://www.pexels.com/api/)`
+    );
+    process.exit(1);
+  }
+
+  const minDur = am.minDuration != null ? Number(am.minDuration) : 15;
+  const maxDur = am.maxDuration != null ? Number(am.maxDuration) : 60;
+  const perPage =
+    am.perQueryPageSize != null ? Number(am.perQueryPageSize) : 15;
+  const maxPages =
+    am.maxPagesPerQuery != null ? Number(am.maxPagesPerQuery) : 25;
+  const apiDelay =
+    am.betweenApiDelayMs != null ? Number(am.betweenApiDelayMs) : 1200;
+  const extra = Math.min(30, Math.ceil(totalNeeded * 0.25));
+  const target = totalNeeded + extra;
+
+  /** @type {Array<{ url: string, title: string, description: string }>} */
+  const queue = [];
+  const seen = new Set();
+  /** @type {Record<string, number>} */
+  const pageByQuery = Object.fromEntries(queries.map((q) => [q, 1]));
+
+  let firstFetch = true;
+  let iterations = 0;
+  const maxIterations = maxPages * queries.length + 100;
+
+  while (queue.length < target && iterations < maxIterations) {
+    iterations++;
+    for (const query of queries) {
+      if (queue.length >= target) break;
+      const page = pageByQuery[query];
+      if (page > maxPages) continue;
+
+      if (!firstFetch && apiDelay > 0) await sleep(apiDelay);
+      firstFetch = false;
+
+      let data;
+      try {
+        data = await pexelsVideoSearch(apiKey, query, page, perPage);
+      } catch (e) {
+        console.error(`Pexels 검색 오류 (${query} p${page}):`, e.message);
+        pageByQuery[query] = page + 1;
+        continue;
+      }
+
+      const videos = data.videos || [];
+      pageByQuery[query] = page + 1;
+
+      if (videos.length === 0) continue;
+
+      for (const video of videos) {
+        if (queue.length >= target) break;
+        const id = video.id;
+        if (seen.has(id)) continue;
+        const dur = Number(video.duration);
+        if (dur < minDur || dur > maxDur) continue;
+        const file = pickPexelsMp4File(video.video_files);
+        if (!file?.link) continue;
+        seen.add(id);
+        const photoUrl =
+          video.url || `https://www.pexels.com/video/video-${id}/`;
+        const userName = video.user?.name || "Pexels";
+        queue.push({
+          url: file.link,
+          title: `Pet short · ${query} · ${id}`.slice(0, 100),
+          description:
+            `MVP 시드 · Pexels · ${userName} · ${photoUrl}`.slice(0, 500),
+        });
+      }
+
+      if (args.verbose) {
+        console.log(
+          `[verbose] Pexels "${query}" page ${page} → 큐 ${queue.length}/${target}`
+        );
+      }
+    }
+
+    if (queries.every((q) => pageByQuery[q] > maxPages)) break;
+  }
+
+  if (queue.length < totalNeeded) {
+    console.warn(
+      `경고: 필요 ${totalNeeded}개 중 ${queue.length}개만 수집했습니다. 검색어·길이(${minDur}~${maxDur}s)를 늘리거나 maxPagesPerQuery 를 키워 보세요.`
+    );
+  }
+
+  return queue.length >= totalNeeded
+    ? queue.slice(0, totalNeeded)
+    : queue;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  await loadDotenvIfPresent();
   let rawJson;
   try {
     rawJson = await readFile(args.config, "utf8");
@@ -200,15 +386,28 @@ async function main() {
   /** @type {Array<{file?:string,url?:string,title?:string,description?:string}>} */
   let items = Array.isArray(cfg.items) ? cfg.items : [];
   items = items.filter((x) => x && (x.file || x.url));
+
+  const totalSlots = userCount * videosPerUser;
+  const usePexels = cfg.autoMedia?.provider === "pexels";
+
+  if (usePexels) {
+    items = await buildQueueFromPexels(cfg, totalSlots, args);
+  }
+
   if (items.length === 0) {
-    console.error("cfg.items 에 최소 1개의 file 또는 url 항목이 필요합니다.");
+    console.error(
+      "업로드할 소스가 없습니다. autoMedia(Pexels)를 쓰거나 cfg.items 에 file/url 을 넣으세요."
+    );
     process.exit(1);
   }
 
   const callbackUrl = prefix;
 
   console.log(`API base: ${prefix}`);
-  console.log(`유저 ${userCount}명 × 영상 ${videosPerUser}개 (소스 ${items.length}개 순환)`);
+  console.log(
+    `유저 ${userCount}명 × 영상 ${videosPerUser}개 · 소스 큐 ${items.length}개` +
+      (usePexels ? " (Pexels 자동 수집)" : " (수동 items)")
+  );
   if (args.dryRun) {
     console.log("--dry-run: 종료");
     return;
@@ -271,6 +470,14 @@ async function main() {
         ({ buf, fileName } = await loadVideoBytes(item, configDir));
       } catch (e) {
         console.error(`  [${v + 1}] 소스 로드 실패:`, e.message);
+        continue;
+      }
+
+      const maxSz = 100 * 1024 * 1024;
+      if (buf.length > maxSz) {
+        console.error(
+          `  [${v + 1}] 파일이 ${Math.round(buf.length / 1024 / 1024)}MB 로 100MB 제한 초과, 스킵`
+        );
         continue;
       }
 
