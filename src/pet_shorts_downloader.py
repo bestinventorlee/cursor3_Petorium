@@ -151,6 +151,8 @@ def base_opts(cookie_opts, verbose=False):
         "sleep_interval":          1,
         "max_sleep_interval":      3,
         "sleep_interval_requests": 1,
+        "extractor_args":          {"youtube": {"player_client": ["web"]}},
+        "js_runtimes":             {"node": {}},
     }
 
 # ── 봇 차단 에러 판별 ─────────────────────────────────────────────────────────
@@ -206,7 +208,7 @@ def fetch_meta(vid_id, cookie_opts):
 
 # 포맷 우선순위: 화질 좋은 것부터 → 단일 스트림 → 뭐든 최선
 FORMAT_CHAIN = [
-    "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best",
+    "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best/bestvideo+bestaudio/best",
 ]
 
 def download_video(vid_id, out_dir, cookie_opts):
