@@ -204,31 +204,60 @@ def fetch_meta(vid_id, cookie_opts):
 
 # ── Step 3: 다운로드 ──────────────────────────────────────────────────────────
 
+# 포맷 우선순위: 화질 좋은 것부터 → 단일 스트림 → 뭐든 최선
+FORMAT_CHAIN = [
+    "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best",
+]
+
 def download_video(vid_id, out_dir, cookie_opts):
     import yt_dlp
 
     tmpl = str(out_dir / "%(upload_date)s_%(id)s_%(title).60s.%(ext)s")
-    opts = {
-        **base_opts(cookie_opts),
-        "outtmpl":             tmpl,
-        "format":              "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
-        "merge_output_format": "mp4",
-        "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
-    }
 
-    for url in [
+    urls = [
         f"https://www.youtube.com/shorts/{vid_id}",
         f"https://www.youtube.com/watch?v={vid_id}",
-    ]:
+    ]
+
+    for fmt in FORMAT_CHAIN:
+        opts = {
+            **base_opts(cookie_opts),
+            "outtmpl":             tmpl,
+            "format":              fmt,
+            "merge_output_format": "mp4",
+            "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+        }
+        for url in urls:
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.download([url])
+                return True
+            except Exception as e:
+                msg = str(e)
+                if is_bot_error(e):
+                    err("봇 차단 — 쿠키를 확인하세요.")
+                    return False
+                if "Requested format is not available" in msg or "not available" in msg.lower():
+                    dim(f"  포맷 불가, 다음 시도: {fmt[:40]}")
+                    break   # 다음 format 으로
+                dim(f"  재시도: {msg[:80]}")
+
+    # 최후 수단: yt-dlp 에게 포맷 선택 완전히 위임
+    opts_fallback = {
+        **base_opts(cookie_opts),
+        "outtmpl": tmpl,
+        "format":  "best",
+    }
+    for url in urls:
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with yt_dlp.YoutubeDL(opts_fallback) as ydl:
                 ydl.download([url])
             return True
         except Exception as e:
             if is_bot_error(e):
                 err("봇 차단 — 쿠키를 확인하세요.")
                 return False
-            dim(f"  재시도: {e}")
+            dim(f"  최후 fallback 실패: {str(e)[:80]}")
 
     return False
 
