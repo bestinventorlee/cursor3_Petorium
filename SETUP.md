@@ -210,9 +210,10 @@ cp scripts/mvp-seed.config.example.json scripts/mvp-seed.config.json
 - **`baseUrl`**: 공개 HTTPS 원본만 (끝에 `/` 없음). 예: `https://your-domain.com`
 - **`publicBasePath`**: `next.config`의 `NEXT_PUBLIC_BASE_PATH`와 같게. 로컬 개발처럼 루트에 배포했으면 `""`, 프로덕션 기본(`/petorium`)이면 `"/petorium"`
 - **`password`**: 시드 유저 공통 비밀번호 (6자 이상)
-- **콘텐츠 소스 (택일)**  
-  - **`autoMedia.provider`: `"pexels"`** — 검색어로 Pexels에서 15~60초 클립만 골라 자동 수집·업로드. [API 키](https://www.pexels.com/api/) 발급 후 환경 변수 `PEXELS_API_KEY`(또는 설정의 `apiKeyEnv`)에 넣습니다.  
-  - 또는 **`items`** — 직접 `file` / `url` 목록 (`autoMedia`를 쓰면 `items`는 비워도 됨)
+- **콘텐츠 소스 (택일)**
+  - **`localMedia.directory`**: `src/pet_shorts` 등 — 폴더 안 mp4를 **유저별로 나눠 업로드**, 성공 시 파일 삭제(재실행 시 중복 방지). 예시: `scripts/mvp-seed.config.pet-shorts.example.json`
+  - **`autoMedia.provider`: `"pexels"`** — Pexels API (`localMedia`가 있으면 Pexels는 사용하지 않음)
+  - 또는 **`items`** — 직접 `file` / `url` 목록
 
 `NEXTAUTH_URL`은 사용자가 접속하는 주소와 같아야 하며(예: `https://your-domain.com/petorium` 배포 시 전체 public URL), 시드의 `baseUrl` + `publicBasePath` 조합과 **같은 앱**을 가리켜야 쿠키·로그인이 맞습니다.
 

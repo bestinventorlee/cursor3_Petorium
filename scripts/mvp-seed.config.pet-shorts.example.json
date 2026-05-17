@@ -1,0 +1,23 @@
+{
+  "$comment": "서버 src/pet_shorts 폴더 → petmvp 유저별 업로드 → 성공 시 파일 삭제. autoMedia 는 제거하거나 directory 를 비우세요.",
+  "baseUrl": "http://localhost:3000",
+  "publicBasePath": "/petorium",
+  "userCount": 10,
+  "videosPerUser": 20,
+  "uniqueVideosPerUser": true,
+  "password": "MvpSeedChangeMe!1",
+  "emailLocalPartPrefix": "petmvp",
+  "emailDomain": "mvp-seed.test",
+  "usernamePrefix": "petmvp",
+  "registerDelayMs": 25000,
+  "uploadDelayMs": 14000,
+  "skipExistingUsers": true,
+  "localMedia": {
+    "directory": "src/pet_shorts",
+    "deleteAfterUpload": true,
+    "shuffle": true,
+    "extensions": [".mp4", ".webm", ".mov", ".mkv"],
+    "skipFileNames": ["download_log.json", ".gitkeep"]
+  },
+  "items": []
+}

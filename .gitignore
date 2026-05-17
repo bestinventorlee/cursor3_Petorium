@@ -50,3 +50,7 @@ cookies.txt
 **/cookies.txt
 cookies.txt.local-backup
 
+# 다운로드된 숏폼 (MVP 시드용, 커밋 금지)
+src/pet_shorts/
+pet_shorts/
+

@@ -7,6 +7,8 @@
  * - 서버 업로드 규칙: 길이 15~60초, 최대 100MB (app/api/videos/upload/route.ts)
  * - 로컬: npm run dev 후 실행. 프로덕션 배포 시 publicBasePath 를 NEXT_PUBLIC_BASE_PATH 와 동일하게 설정
  *
+ * 로컬 폴더 (localMedia): src/pet_shorts 등 — 유저별 업로드 후 파일 삭제 가능
+ *
  * 자동 소스 (Pexels): 환경 변수 PEXELS_API_KEY + 설정의 autoMedia 사용 시
  * 검색어로 허용 라이선스 스톡 영상을 받아 15~60초만 골라 업로드합니다.
  * https://www.pexels.com/api/ · https://www.pexels.com/license/
@@ -20,8 +22,8 @@
  *   --verbose         응답 로그
  */
 
-import { readFile } from "node:fs/promises";
-import { dirname, resolve, basename } from "node:path";
+import { readFile, readdir, unlink, stat } from "node:fs/promises";
+import { dirname, resolve, basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -224,9 +226,14 @@ async function verifySession(prefix, jar) {
 }
 
 async function loadVideoBytes(item, configDir) {
-  if (item.file) {
-    const p = resolve(configDir, item.file);
-    return { buf: await readFile(p), fileName: basename(p) };
+  const filePath = item.absolutePath || item.file;
+  if (filePath) {
+    const p =
+      item.absolutePath ||
+      (filePath.startsWith("/") || /^[A-Za-z]:[\\/]/.test(filePath)
+        ? filePath
+        : resolve(configDir, filePath));
+    return { buf: await readFile(p), fileName: basename(p), path: p };
   }
   if (item.url) {
     const res = await fetch(item.url);
@@ -244,7 +251,99 @@ async function loadVideoBytes(item, configDir) {
     }
     return { buf, fileName };
   }
-  throw new Error("items 항목에 file 또는 url 이 필요합니다");
+  throw new Error("items 항목에 file, absolutePath 또는 url 이 필요합니다");
+}
+
+/** 파일명에서 업로드 제목 생성 */
+function titleFromFileName(fileName) {
+  const base = basename(fileName, extname(fileName));
+  const cleaned = base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  return (cleaned || "Pet short").slice(0, 100);
+}
+
+const DEFAULT_VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".mkv", ".m4v"];
+
+/**
+ * localMedia.directory 에 있는 영상을 큐로 만듦 (유저별 고유 할당용)
+ * @param {object} cfg
+ * @param {number} totalNeeded
+ * @param {{ dryRun: boolean, verbose: boolean }} args
+ */
+async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
+  const lm = cfg.localMedia || {};
+  const dirRel = lm.directory || "src/pet_shorts";
+  const dir = resolve(process.cwd(), dirRel);
+  const exts = (
+    Array.isArray(lm.extensions) && lm.extensions.length > 0
+      ? lm.extensions
+      : DEFAULT_VIDEO_EXTENSIONS
+  ).map((e) => e.toLowerCase());
+  const deleteAfter = lm.deleteAfterUpload !== false;
+  const shuffle = lm.shuffle !== false;
+
+  let names;
+  try {
+    names = await readdir(dir);
+  } catch (e) {
+    console.error(`로컬 폴더를 읽을 수 없습니다: ${dir}`);
+    console.error(e.message);
+    process.exit(1);
+  }
+
+  const skipNames = new Set(
+    (lm.skipFileNames || ["download_log.json", ".gitkeep"]).map(String)
+  );
+
+  const candidates = [];
+  for (const name of names) {
+    if (skipNames.has(name)) continue;
+    const ext = extname(name).toLowerCase();
+    if (!exts.includes(ext)) continue;
+    const absolutePath = join(dir, name);
+    try {
+      const st = await stat(absolutePath);
+      if (!st.isFile()) continue;
+      candidates.push({ name, absolutePath, mtime: st.mtimeMs });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  candidates.sort((a, b) => a.mtime - b.mtime);
+  if (shuffle) shuffleInPlace(candidates);
+
+  if (candidates.length === 0) {
+    console.error(`업로드할 영상이 없습니다: ${dir}`);
+    process.exit(1);
+  }
+
+  const queue = candidates.map(({ name, absolutePath }) => ({
+    absolutePath,
+    file: absolutePath,
+    title: titleFromFileName(name),
+    description: lm.descriptionPrefix
+      ? String(lm.descriptionPrefix).slice(0, 500)
+      : "MVP 시드 · 로컬 pet_shorts",
+    deleteAfterUpload: deleteAfter,
+  }));
+
+  console.log(
+    `로컬 폴더: ${dir} · 영상 ${queue.length}개` +
+      (deleteAfter ? " · 업로드 성공 시 파일 삭제" : "")
+  );
+
+  if (args.dryRun) {
+    console.log(`[dry-run] 상위 ${Math.min(5, queue.length)}개:`);
+    queue.slice(0, 5).forEach((q, i) => console.log(`  ${i + 1}. ${basename(q.absolutePath)}`));
+  }
+
+  if (queue.length < totalNeeded) {
+    console.warn(
+      `경고: 폴더에 ${queue.length}개, 필요 ${totalNeeded}개 — 있는 만큼만 유저에 나눠 올립니다.`
+    );
+  }
+
+  return queue;
 }
 
 /**
@@ -505,21 +604,25 @@ async function main() {
 
   const totalSlots = userCount * videosPerUser;
   const uniquePerUser = cfg.uniqueVideosPerUser !== false;
-  const usePexels = cfg.autoMedia?.provider === "pexels";
+  const useLocal = Boolean(cfg.localMedia?.directory);
+  const usePexels = !useLocal && cfg.autoMedia?.provider === "pexels";
 
-  if (usePexels) {
+  if (useLocal) {
+    items = await buildQueueFromLocalDirectory(cfg, totalSlots, args);
+  } else if (usePexels) {
     items = await buildQueueFromPexels(cfg, totalSlots, args);
   }
 
   if (uniquePerUser && items.length < totalSlots) {
     console.warn(
-      `경고: 고유 클립 ${items.length}개 < 필요 ${totalSlots}개 — 일부 유저는 영상이 부족할 수 있습니다. queries·maxPagesPerQuery 를 늘리세요.`
+      `경고: 고유 클립 ${items.length}개 < 필요 ${totalSlots}개 — 일부 유저는 영상이 부족할 수 있습니다.` +
+        (usePexels ? " queries·maxPagesPerQuery 를 늘리세요." : " pet_shorts 에 영상을 더 넣으세요.")
     );
   }
 
   if (items.length === 0) {
     console.error(
-      "업로드할 소스가 없습니다. autoMedia(Pexels)를 쓰거나 cfg.items 에 file/url 을 넣으세요."
+      "업로드할 소스가 없습니다. localMedia.directory, autoMedia(Pexels), 또는 items 에 file/url 을 설정하세요."
     );
     process.exit(1);
   }
@@ -529,7 +632,11 @@ async function main() {
   console.log(`API base: ${prefix}`);
   console.log(
     `유저 ${userCount}명 × 영상 ${videosPerUser}개 · 소스 큐 ${items.length}개` +
-      (usePexels ? " (Pexels 자동 수집)" : " (수동 items)") +
+      (useLocal
+        ? " (로컬 pet_shorts)"
+        : usePexels
+          ? " (Pexels 자동 수집)"
+          : " (수동 items)") +
       (uniquePerUser ? " · 유저별 서로 다른 클립" : " · 클립 순환(중복 가능)")
   );
   if (args.dryRun) {
@@ -607,8 +714,9 @@ async function main() {
       }
       let buf;
       let fileName;
+      let sourcePath;
       try {
-        ({ buf, fileName } = await loadVideoBytes(item, configDir));
+        ({ buf, fileName, path: sourcePath } = await loadVideoBytes(item, configDir));
       } catch (e) {
         console.error(`  [${v + 1}] 소스 로드 실패:`, e.message);
         continue;
@@ -657,6 +765,10 @@ async function main() {
       }
 
       const vid = upJson?.videoId || upJson?.video?.id;
+      const uploadOk =
+        (vid && /^[a-z0-9]+$/i.test(String(vid))) ||
+        (upJson && !upText.includes("<!DOCTYPE") && !upText.includes("<html"));
+
       if (vid && /^[a-z0-9]+$/i.test(String(vid))) {
         console.log(`  [${v + 1}] OK videoId=${vid}`);
       } else if (upText.includes("<!DOCTYPE") || upText.includes("<html")) {
@@ -670,6 +782,17 @@ async function main() {
         console.error(
           `  [${v + 1}] 비JSON 응답 (${upRes.status}): ${upText.slice(0, 200)}`
         );
+        continue;
+      }
+
+      const toDelete = item.deleteAfterUpload && (item.absolutePath || sourcePath);
+      if (uploadOk && toDelete) {
+        try {
+          await unlink(toDelete);
+          console.log(`  [${v + 1}] 삭제됨: ${basename(toDelete)}`);
+        } catch (e) {
+          console.error(`  [${v + 1}] 파일 삭제 실패: ${e.message}`);
+        }
       }
     }
   }
