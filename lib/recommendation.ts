@@ -4,6 +4,7 @@ import {
   setCachedRecommendations,
   getCachedTrendingVideos,
 } from "./recommendation-cache";
+import { isRandomFeedOrder, shuffleArray } from "./shuffle";
 
 export interface VideoScore {
   videoId: string;
@@ -395,8 +396,10 @@ export async function getRecommendedVideos(
   cursor: string | null,
   limit: number = 15
 ) {
-  // 캐시 확인 (첫 페이지만 캐시)
-  if (!cursor) {
+  const randomOrder = isRandomFeedOrder();
+
+  // 무작위 피드는 새로고침마다 순서가 바뀌도록 캐시 사용 안 함
+  if (!cursor && !randomOrder) {
     const cached = getCachedRecommendations(userId, null);
     if (cached) {
       return cached;
@@ -466,12 +469,17 @@ export async function getRecommendedVideos(
     }
   }
 
-  // 점수로 정렬
   scoredVideos.sort((a, b) => b.score - a.score);
 
-  // 상위 N개 선택
-  const topVideos = scoredVideos.slice(0, limit * 2); // 다양성을 위해 더 많이 가져옴
-  const selectedVideoIds = topVideos.map((v) => v.videoId);
+  const poolSize = Math.min(
+    scoredVideos.length,
+    Math.max(limit * 5, 50)
+  );
+  const candidatePool = scoredVideos.slice(0, poolSize);
+  const picked = randomOrder
+    ? shuffleArray(candidatePool).slice(0, limit)
+    : candidatePool.slice(0, limit);
+  const selectedVideoIds = picked.map((v) => v.videoId);
 
   // 비디오 데이터 가져오기
   const videos = await prisma.video.findMany({
@@ -525,12 +533,10 @@ export async function getRecommendedVideos(
     take: limit,
   });
 
-  // 점수 순서대로 정렬
   const videoMap = new Map(videos.map((v) => [v.id, v]));
   const sortedVideos = selectedVideoIds
     .map((id) => videoMap.get(id))
-    .filter((v): v is NonNullable<typeof v> => v !== undefined)
-    .slice(0, limit);
+    .filter((v): v is NonNullable<typeof v> => v !== undefined);
 
   // 다음 커서 생성
   const nextCursor =
@@ -552,8 +558,7 @@ export async function getRecommendedVideos(
     hasMore: scoredVideos.length > limit,
   };
 
-  // 첫 페이지 캐시
-  if (!cursor) {
+  if (!cursor && !randomOrder) {
     setCachedRecommendations(userId, null, result);
   }
 

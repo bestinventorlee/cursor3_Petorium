@@ -14,10 +14,12 @@ import {
   uploadThumbnailFile,
   uploadWithRetry,
 } from "@/lib/storage";
+import {
+  getVideoDurationLimits,
+  validateVideoDuration,
+} from "@/lib/video-upload-limits";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-const MIN_DURATION = 15; // seconds
-const MAX_DURATION = 60; // seconds
 const MAX_RETRIES = 3;
 
 export async function POST(request: NextRequest) {
@@ -89,12 +91,12 @@ export async function POST(request: NextRequest) {
       // 비디오 메타데이터 가져오기 (빠른 검증만)
       const metadata = await getVideoMetadata(tempFilePath);
 
-      // 길이 검증
-      if (metadata.duration < MIN_DURATION) {
-        throw new Error(`비디오 길이는 최소 ${MIN_DURATION}초 이상이어야 합니다`);
-      }
-      if (metadata.duration > MAX_DURATION) {
-        throw new Error(`비디오 길이는 최대 ${MAX_DURATION}초까지 가능합니다`);
+      const durationError = validateVideoDuration(
+        metadata.duration,
+        getVideoDurationLimits()
+      );
+      if (durationError) {
+        throw new Error(durationError);
       }
 
       // 즉시 데이터베이스에 저장 (처리 중 상태)

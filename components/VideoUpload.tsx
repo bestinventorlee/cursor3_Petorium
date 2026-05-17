@@ -2,6 +2,10 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  getPublicVideoDurationLimits,
+  validateVideoDuration,
+} from "@/lib/video-upload-limits";
 import { withBasePath } from "@/lib/base-path";
 
 // CSRF 토큰 가져오기
@@ -28,8 +32,7 @@ interface VideoUploadProps {
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 const ALLOWED_FORMATS = ["video/mp4", "video/quicktime", "video/x-msvideo"]; // mp4, mov, avi
 const ALLOWED_EXTENSIONS = [".mp4", ".mov", ".avi"];
-const MIN_DURATION = 15; // seconds
-const MAX_DURATION = 60; // seconds
+const DURATION_LIMITS = getPublicVideoDurationLimits();
 
 export default function VideoUpload({
   onUploadComplete,
@@ -68,13 +71,7 @@ export default function VideoUpload({
   }, []);
 
   const validateDuration = useCallback((duration: number): string | null => {
-    if (duration < MIN_DURATION) {
-      return `비디오 길이는 최소 ${MIN_DURATION}초 이상이어야 합니다`;
-    }
-    if (duration > MAX_DURATION) {
-      return `비디오 길이는 최대 ${MAX_DURATION}초까지 가능합니다`;
-    }
-    return null;
+    return validateVideoDuration(duration, DURATION_LIMITS);
   }, []);
 
   const handleFileSelect = useCallback(
@@ -437,7 +434,7 @@ export default function VideoUpload({
                 비디오를 드래그하여 놓거나 클릭하여 선택
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                MP4, MOV, AVI (최대 100MB, 15-60초)
+                MP4, MOV, AVI (최대 100MB)
               </p>
             </div>
             <button

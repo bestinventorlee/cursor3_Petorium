@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isRandomFeedOrder, shuffleArray } from "@/lib/shuffle";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,30 +11,35 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
-    const videos = await prisma.video.findMany({
-      where: {
-        isRemoved: false,
-        isFlagged: false,
-        // 처리 중이거나 오류 상태인 비디오 제외
-        AND: [
-          {
-            videoUrl: {
-              not: {
-                startsWith: "processing://",
-              },
+    const playableWhere = {
+      isRemoved: false,
+      isFlagged: false,
+      AND: [
+        {
+          videoUrl: {
+            not: {
+              startsWith: "processing://",
             },
           },
-          {
-            videoUrl: {
-              not: {
-                startsWith: "error://",
-              },
+        },
+        {
+          videoUrl: {
+            not: {
+              startsWith: "error://",
             },
           },
-        ],
-      },
-      skip,
-      take: limit,
+        },
+      ],
+    };
+
+    const useRandom = isRandomFeedOrder();
+    const fetchSkip = useRandom ? 0 : skip;
+    const fetchTake = useRandom ? Math.min(limit * 8, 200) : limit;
+
+    let videos = await prisma.video.findMany({
+      where: playableWhere,
+      skip: fetchSkip,
+      take: fetchTake,
       orderBy: {
         createdAt: "desc",
       },
@@ -54,27 +60,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    if (useRandom) {
+      videos = shuffleArray(videos).slice(skip, skip + limit);
+    }
+
     const total = await prisma.video.count({
-      where: {
-        isRemoved: false,
-        isFlagged: false,
-        AND: [
-          {
-            videoUrl: {
-              not: {
-                startsWith: "processing://",
-              },
-            },
-          },
-          {
-            videoUrl: {
-              not: {
-                startsWith: "error://",
-              },
-            },
-          },
-        ],
-      },
+      where: playableWhere,
     });
 
     return NextResponse.json({

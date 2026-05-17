@@ -16,6 +16,8 @@
     "directory": "src/pet_shorts",
     "deleteAfterUpload": true,
     "shuffle": true,
+    "filterByDuration": false,
+    "quarantineDirectory": "src/pet_shorts/_rejected",
     "extensions": [".mp4", ".webm", ".mov", ".mkv"],
     "skipFileNames": ["download_log.json", ".gitkeep"]
   },

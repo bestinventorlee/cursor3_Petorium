@@ -4,7 +4,7 @@
  *
  * 전제:
  * - 영상은 사용·재배포가 허용된 파일 또는 직접 호스팅 URL(예: mp4 직링크)만 사용
- * - 서버 업로드 규칙: 길이 15~60초, 최대 100MB (app/api/videos/upload/route.ts)
+ * - 서버 업로드: 기본 길이 제한 없음(최대 100MB). VIDEO_*_DURATION_SECONDS 로 제한 가능
  * - 로컬: npm run dev 후 실행. 프로덕션 배포 시 publicBasePath 를 NEXT_PUBLIC_BASE_PATH 와 동일하게 설정
  *
  * 로컬 폴더 (localMedia): src/pet_shorts 등 — 유저별 업로드 후 파일 삭제 가능
@@ -22,7 +22,9 @@
  *   --verbose         응답 로그
  */
 
-import { readFile, readdir, unlink, stat } from "node:fs/promises";
+import { readFile, readdir, unlink, stat, mkdir, rename } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { dirname, resolve, basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -262,6 +264,74 @@ function titleFromFileName(fileName) {
 }
 
 const DEFAULT_VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".mkv", ".m4v"];
+/** Petorium 업로드 API 와 동일 (app/api/videos/upload/route.ts) */
+function resolveFfprobePath() {
+  if (process.env.FFPROBE_PATH) return process.env.FFPROBE_PATH;
+  const plat =
+    process.platform === "win32"
+      ? "win32"
+      : process.platform === "darwin"
+        ? "darwin"
+        : "linux";
+  const arch = process.arch === "x64" || process.arch === "arm64" ? "x64" : process.arch;
+  const bin = process.platform === "win32" ? "ffprobe.exe" : "ffprobe";
+  return join(process.cwd(), "node_modules", "ffprobe-static", "bin", plat, arch, bin);
+}
+
+/** @returns {Promise<number|null>} 초 단위 길이 */
+function probeDurationSeconds(filePath) {
+  const ffprobe = resolveFfprobePath();
+  if (!existsSync(ffprobe)) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const proc = spawn(
+      ffprobe,
+      [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "json",
+        filePath,
+      ],
+      { windowsHide: true }
+    );
+    let out = "";
+    proc.stdout?.on("data", (d) => {
+      out += d;
+    });
+    proc.on("error", () => resolve(null));
+    proc.on("close", (code) => {
+      if (code !== 0) return resolve(null);
+      try {
+        const j = JSON.parse(out);
+        const sec = parseFloat(j.format?.duration);
+        resolve(Number.isFinite(sec) ? sec : null);
+      } catch {
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * 길이 규칙에 맞지 않는 파일을 격리 폴더로 이동 (재시도 시 같은 실패 방지)
+ */
+async function quarantineInvalidFile(filePath, quarantineDir, reason) {
+  if (!filePath || !existsSync(filePath)) return;
+  await mkdir(quarantineDir, { recursive: true });
+  const dest = join(quarantineDir, basename(filePath));
+  let finalDest = dest;
+  if (existsSync(finalDest)) {
+    finalDest = join(
+      quarantineDir,
+      `${Date.now()}_${basename(filePath)}`
+    );
+  }
+  await rename(filePath, finalDest);
+  console.log(`  → 격리: ${basename(finalDest)} (${reason})`);
+}
 
 /**
  * localMedia.directory 에 있는 영상을 큐로 만듦 (유저별 고유 할당용)
@@ -280,6 +350,14 @@ async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
   ).map((e) => e.toLowerCase());
   const deleteAfter = lm.deleteAfterUpload !== false;
   const shuffle = lm.shuffle !== false;
+  const minDur = lm.minDuration != null ? Number(lm.minDuration) : 0;
+  const maxDur = lm.maxDuration != null ? Number(lm.maxDuration) : 0;
+  const filterDuration =
+    lm.filterByDuration === true && (minDur > 0 || maxDur > 0);
+  const quarantineDir = resolve(
+    process.cwd(),
+    lm.quarantineDirectory || join(dirRel, "_rejected")
+  );
 
   let names;
   try {
@@ -317,20 +395,72 @@ async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
     process.exit(1);
   }
 
-  const queue = candidates.map(({ name, absolutePath }) => ({
-    absolutePath,
-    file: absolutePath,
-    title: titleFromFileName(name),
-    description: lm.descriptionPrefix
-      ? String(lm.descriptionPrefix).slice(0, 500)
-      : "MVP 시드 · 로컬 pet_shorts",
-    deleteAfterUpload: deleteAfter,
-  }));
+  const queue = [];
+  let skippedDuration = 0;
+  const hasFfprobe = existsSync(resolveFfprobePath());
+
+  if (filterDuration && !hasFfprobe) {
+    console.warn(
+      "경고: ffprobe 를 찾을 수 없어 길이 사전 검사를 건너뜁니다. (npm install 후 node_modules/ffprobe-static 확인)"
+    );
+  }
+
+  for (const { name, absolutePath } of candidates) {
+    if (filterDuration && hasFfprobe) {
+      const dur = await probeDurationSeconds(absolutePath);
+      if (dur != null) {
+        if (minDur > 0 && dur < minDur) {
+          skippedDuration++;
+          await quarantineInvalidFile(
+            absolutePath,
+            quarantineDir,
+            `${dur.toFixed(1)}s < ${minDur}s`
+          );
+          continue;
+        }
+        if (maxDur > 0 && dur > maxDur) {
+          skippedDuration++;
+          await quarantineInvalidFile(
+            absolutePath,
+            quarantineDir,
+            `${dur.toFixed(1)}s > ${maxDur}s`
+          );
+          continue;
+        }
+      }
+    }
+
+    queue.push({
+      absolutePath,
+      file: absolutePath,
+      title: titleFromFileName(name),
+      description: lm.descriptionPrefix
+        ? String(lm.descriptionPrefix).slice(0, 500)
+        : "MVP 시드 · 로컬 pet_shorts",
+      deleteAfterUpload: deleteAfter,
+      quarantineDir,
+    });
+  }
 
   console.log(
-    `로컬 폴더: ${dir} · 영상 ${queue.length}개` +
-      (deleteAfter ? " · 업로드 성공 시 파일 삭제" : "")
+    `로컬 폴더: ${dir} · 업로드 대상 ${queue.length}개` +
+      (skippedDuration
+        ? ` · 길이 부적합 ${skippedDuration}개 → ${quarantineDir}`
+        : "") +
+      (filterDuration && hasFfprobe
+        ? ` · 허용 길이 ${minDur}~${maxDur}초`
+        : "") +
+      (deleteAfter ? " · 성공 시 삭제" : "")
   );
+
+  if (queue.length === 0) {
+    console.error(
+      filterDuration
+        ? `업로드 가능한 영상이 없습니다 (${minDur}~${maxDur}초). _rejected 폴더를 확인하세요.`
+        : "업로드 가능한 영상이 없습니다."
+    );
+    process.exit(1);
+  }
 
   if (args.dryRun) {
     console.log(`[dry-run] 상위 ${Math.min(5, queue.length)}개:`);
@@ -415,7 +545,8 @@ function tryAddPexelsVideo(video, label, seen, minDur, maxDur) {
   const id = video.id;
   if (seen.has(id)) return null;
   const dur = Number(video.duration);
-  if (dur < minDur || dur > maxDur) return null;
+  if (minDur > 0 && dur < minDur) return null;
+  if (maxDur > 0 && dur > maxDur) return null;
   const file = pickPexelsMp4File(video.video_files);
   if (!file?.link) return null;
   seen.add(id);
@@ -463,8 +594,8 @@ async function buildQueueFromPexels(cfg, totalNeeded, args) {
     process.exit(1);
   }
 
-  const minDur = am.minDuration != null ? Number(am.minDuration) : 15;
-  const maxDur = am.maxDuration != null ? Number(am.maxDuration) : 60;
+  const minDur = am.minDuration != null ? Number(am.minDuration) : 0;
+  const maxDur = am.maxDuration != null ? Number(am.maxDuration) : 0;
   const perPage =
     am.perQueryPageSize != null ? Number(am.perQueryPageSize) : 15;
   const maxPages =
