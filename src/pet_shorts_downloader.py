@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
 YouTube 반려동물 숏폼 자동 다운로드 스크립트
-의존성: yt-dlp
-설치: pip install yt-dlp
+의존성: yt-dlp   (pip install yt-dlp)
+FFmpeg: mp4 병합에 필요
 
-쿠키 인증 전략 (우선순위):
-  1. --cookies-from-browser chrome|firefox|edge|safari  (자동)
-  2. --cookies /path/to/cookies.txt                     (수동 넷스케이프 형식)
-  3. 쿠키 없이 시도 (IP에 따라 성공할 수도 있음)
+쿠키 우선순위:
+  1. --browser chrome|firefox|edge|safari|brave|chromium  (자동 추출)
+  2. --cookies /path/to/cookies.txt                       (Netscape 파일)
+  3. 쿠키 없이 시도 (차단될 수 있음)
+
+⚠️  Chrome 쿠키 추출 시 Chrome을 완전히 종료하세요.
+    종료가 어려우면 --browser firefox 를 사용하세요.
 """
 
 import os
@@ -24,327 +27,257 @@ from datetime import datetime
 # ── 설정 ─────────────────────────────────────────────────────────────────────
 
 DEFAULT_QUERIES = [
-    "강아지 귀여운 shorts",
-    "고양이 웃긴 shorts",
-    "반려동물 귀여운 순간 shorts",
-    "puppy funny shorts",
-    "cat cute shorts",
+    "강아지 귀여운 #shorts",
+    "고양이 웃긴 #shorts",
+    "반려동물 귀여운 순간 #shorts",
+    "puppy cute #shorts",
+    "cat funny #shorts",
 ]
 
 DEFAULT_OUTPUT_DIR = "./pet_shorts"
-MAX_DURATION = 180       # Shorts 최대 길이(초) — 안전 마진 포함
-MIN_VIEWS = 10_000       # 최소 조회수 필터 (0 = 필터 없음)
-MAX_PER_QUERY = 10       # 검색어당 최대 다운로드 수
-MAX_TOTAL = 50           # 전체 최대 다운로드 수
+MAX_DURATION       = 180     # Shorts 최대 길이(초)
+MIN_VIEWS          = 0       # 최소 조회수 (0 = 필터 없음)
+MAX_PER_QUERY      = 10      # 검색어당 최대 다운로드 수
+MAX_TOTAL          = 50      # 전체 최대 다운로드 수
+REQUEST_SLEEP      = 2.0     # 영상 간 딜레이(초)
 
-# 브라우저 감지 우선순위 (설치 여부 자동 판별)
-BROWSER_PRIORITY = ["chrome", "firefox", "edge", "chromium", "safari", "brave", "opera"]
+BROWSER_PRIORITY = ["firefox", "chrome", "edge", "chromium", "brave", "safari", "opera"]
 
-# User-Agent (최신 Chrome)
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/125.0.0.0 Safari/537.36"
 )
 
-
-# ── 색상 출력 헬퍼 ────────────────────────────────────────────────────────────
+# ── 색상 출력 ─────────────────────────────────────────────────────────────────
 
 class C:
-    RESET  = "\033[0m"
-    BOLD   = "\033[1m"
-    RED    = "\033[91m"
-    GREEN  = "\033[92m"
-    YELLOW = "\033[93m"
-    CYAN   = "\033[96m"
-    GRAY   = "\033[90m"
+    RESET = "\033[0m";  BOLD  = "\033[1m"
+    RED   = "\033[91m"; GREEN = "\033[92m"
+    YELLOW= "\033[93m"; CYAN  = "\033[96m"
+    GRAY  = "\033[90m"
 
-def info(msg):  print(f"{C.CYAN}[INFO]{C.RESET}  {msg}")
-def ok(msg):    print(f"{C.GREEN}[OK]{C.RESET}    {msg}")
-def warn(msg):  print(f"{C.YELLOW}[WARN]{C.RESET}  {msg}")
-def err(msg):   print(f"{C.RED}[ERR]{C.RESET}   {msg}", file=sys.stderr)
-def dim(msg):   print(f"{C.GRAY}{msg}{C.RESET}")
-
+def info(m): print(f"{C.CYAN}[INFO]{C.RESET}  {m}")
+def ok(m):   print(f"{C.GREEN}[OK]{C.RESET}    {m}")
+def warn(m): print(f"{C.YELLOW}[WARN]{C.RESET}  {m}")
+def err(m):  print(f"{C.RED}[ERR]{C.RESET}   {m}", file=sys.stderr)
+def dim(m):  print(f"{C.GRAY}{m}{C.RESET}")
 
 # ── yt-dlp 설치 확인 ──────────────────────────────────────────────────────────
 
 def ensure_ytdlp():
     try:
-        import yt_dlp  # noqa: F401
-        return True
+        import yt_dlp  # noqa
     except ImportError:
-        warn("yt-dlp 가 설치되어 있지 않습니다. 설치를 시도합니다...")
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "yt-dlp", "-q"],
-            capture_output=True
-        )
-        if result.returncode != 0:
-            err("yt-dlp 설치 실패. 수동으로 'pip install yt-dlp' 를 실행하세요.")
+        warn("yt-dlp 미설치 → pip 자동 설치 시도")
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "yt-dlp", "-q"],
+                           capture_output=True)
+        if r.returncode != 0:
+            err("설치 실패. 수동으로 'pip install yt-dlp' 를 실행하세요.")
             sys.exit(1)
-        ok("yt-dlp 설치 완료.")
-        return True
+        ok("yt-dlp 설치 완료")
 
+# ── 브라우저 자동 감지 ────────────────────────────────────────────────────────
 
-# ── 쿠키 자동 감지 ────────────────────────────────────────────────────────────
-
-def detect_browser() -> str | None:
-    """설치된 브라우저 중 쿠키를 꺼낼 수 있는 것을 자동 감지"""
+def detect_browser():
     system = platform.system()
-
-    # 브라우저별 프로세스/실행파일 이름
-    browser_bins = {
-        "chrome":    ["google-chrome", "chrome", "Google Chrome"],
-        "firefox":   ["firefox", "firefox-esr"],
-        "edge":      ["microsoft-edge", "msedge", "Microsoft Edge"],
-        "chromium":  ["chromium", "chromium-browser"],
-        "brave":     ["brave-browser", "brave"],
-        "safari":    ["Safari"],   # macOS only
-        "opera":     ["opera"],
+    mac_apps = {
+        "firefox":  "/Applications/Firefox.app",
+        "chrome":   "/Applications/Google Chrome.app",
+        "edge":     "/Applications/Microsoft Edge.app",
+        "safari":   "/Applications/Safari.app",
+        "brave":    "/Applications/Brave Browser.app",
+        "chromium": "/Applications/Chromium.app",
     }
-
+    bins = {
+        "firefox":  ["firefox", "firefox-esr"],
+        "chrome":   ["google-chrome", "chrome", "google-chrome-stable"],
+        "edge":     ["microsoft-edge", "msedge"],
+        "chromium": ["chromium", "chromium-browser"],
+        "brave":    ["brave-browser", "brave"],
+        "opera":    ["opera"],
+        "safari":   [],
+    }
     for browser in BROWSER_PRIORITY:
         if browser == "safari" and system != "Darwin":
             continue
-        bins = browser_bins.get(browser, [browser])
-        for b in bins:
+        for b in bins.get(browser, []):
             if shutil.which(b):
                 return browser
-        # macOS: Applications 폴더 확인
-        if system == "Darwin":
-            app_map = {
-                "chrome": "/Applications/Google Chrome.app",
-                "firefox": "/Applications/Firefox.app",
-                "edge": "/Applications/Microsoft Edge.app",
-                "safari": "/Applications/Safari.app",
-                "brave": "/Applications/Brave Browser.app",
-            }
-            if browser in app_map and Path(app_map[browser]).exists():
+        if system == "Darwin" and browser in mac_apps:
+            if Path(mac_apps[browser]).exists():
                 return browser
-
     return None
 
+# ── 쿠키 옵션 결정 ────────────────────────────────────────────────────────────
 
-def resolve_cookie_opts(
-    cookies_from_browser: str | None,
-    cookies_file: str | None,
-) -> dict:
-    """
-    쿠키 옵션을 결정해서 반환.
-    우선순위: CLI 명시 browser > CLI 명시 file > 자동 감지 browser > 없음
-    """
-    opts = {}
+def resolve_cookie_opts(browser_arg, file_arg):
+    # cookiesfrombrowser 튜플: (browser_name, profile, keyring, container)
+    if browser_arg:
+        parts = browser_arg.split(":", 1)
+        bname = parts[0].strip()
+        prof  = parts[1].strip() if len(parts) > 1 else None
+        info(f"쿠키: 브라우저 = {bname}" + (f"  프로필 = {prof}" if prof else ""))
+        return {"cookiesfrombrowser": (bname, prof, None, None)}
 
-    if cookies_from_browser:
-        # e.g. "chrome" or "chrome:Profile 1"
-        opts["cookiesfrombrowser"] = (cookies_from_browser.split(":")[0],
-                                       cookies_from_browser.split(":")[1]
-                                       if ":" in cookies_from_browser else None,
-                                       None, None)
-        info(f"쿠키 소스: 브라우저 ({cookies_from_browser})")
-        return opts
-
-    if cookies_file:
-        p = Path(cookies_file)
+    if file_arg:
+        p = Path(file_arg).expanduser()
         if not p.exists():
-            err(f"쿠키 파일을 찾을 수 없습니다: {cookies_file}")
+            err(f"쿠키 파일 없음: {p}")
             sys.exit(1)
-        opts["cookiefile"] = str(p)
-        info(f"쿠키 소스: 파일 ({cookies_file})")
-        return opts
+        info(f"쿠키: 파일 = {p}")
+        return {"cookiefile": str(p)}
 
-    # 자동 감지
     detected = detect_browser()
     if detected:
-        opts["cookiesfrombrowser"] = (detected, None, None, None)
-        info(f"쿠키 소스: 자동 감지 → {detected}")
-    else:
-        warn("브라우저를 감지하지 못했습니다. 쿠키 없이 시도합니다.")
-        warn("차단될 경우: --browser chrome  또는  --cookies cookies.txt  를 사용하세요.")
+        info(f"쿠키: 자동 감지 → {detected}")
+        return {"cookiesfrombrowser": (detected, None, None, None)}
 
-    return opts
+    warn("브라우저 미감지. 쿠키 없이 시도합니다.")
+    warn("해결: --browser chrome  또는  --cookies cookies.txt")
+    return {}
 
+# ── 공통 yt-dlp 옵션 ──────────────────────────────────────────────────────────
 
-def build_base_opts(cookie_opts: dict, verbose: bool = False) -> dict:
-    """공통 yt-dlp 옵션 (쿠키 + User-Agent + 기타 우회 설정 포함)"""
-    opts = {
+def base_opts(cookie_opts, verbose=False):
+    return {
         **cookie_opts,
-        "quiet": not verbose,
-        "no_warnings": not verbose,
-        "http_headers": {"User-Agent": UA},
-        "sleep_interval": 2,
-        "max_sleep_interval": 5,
-        "retries": 5,
-        "fragment_retries": 5,
-        "extractor_retries": 3,
-        # IP 차단 우회: 요청 간격 랜덤화
+        "quiet":                   not verbose,
+        "no_warnings":             not verbose,
+        "http_headers":            {"User-Agent": UA},
+        "retries":                 5,
+        "fragment_retries":        5,
+        "extractor_retries":       3,
+        "sleep_interval":          1,
+        "max_sleep_interval":      3,
         "sleep_interval_requests": 1,
     }
-    return opts
 
+# ── 봇 차단 에러 판별 ─────────────────────────────────────────────────────────
 
-# ── 검색 URL 생성 ─────────────────────────────────────────────────────────────
+def is_bot_error(e):
+    msg = str(e).lower()
+    return "sign in" in msg or "bot" in msg or "confirm" in msg
 
-def build_search_url(query: str, max_results: int) -> str:
-    """ytsearch:<n>:<query> 형식으로 yt-dlp 검색 URL 반환"""
-    return f"ytsearch{max_results}:{query}"
+# ── Step 1: 검색으로 ID 목록 수집 (extract_flat — 빠름) ───────────────────────
 
-
-# ── 영상 메타데이터 수집 ───────────────────────────────────────────────────────
-
-def fetch_metadata(query: str, max_results: int, cookie_opts: dict) -> list[dict]:
-    """검색 결과 메타데이터를 JSON으로 수집"""
+def fetch_ids(query, n, cookie_opts):
     import yt_dlp
 
-    search_url = build_search_url(query, max_results * 3)  # 필터링 여유분
-
-    ydl_opts = {
-        **build_base_opts(cookie_opts),
+    opts = {
+        **base_opts(cookie_opts),
         "extract_flat": "in_playlist",
         "skip_download": True,
+        "playlistend": n * 4,
     }
-
-    info(f"검색 중: {C.BOLD}{query}{C.RESET}")
+    info(f"검색: {C.BOLD}{query}{C.RESET}")
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(search_url, download=False)
-            entries = info_dict.get("entries", []) if info_dict else []
-            return [e for e in entries if e]
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            res = ydl.extract_info(f"ytsearch{n * 4}:{query}", download=False)
+        entries = (res.get("entries") or []) if res else []
+        return [e for e in entries if e and e.get("id")]
     except Exception as e:
-        err(f"메타데이터 수집 실패: {e}")
+        if is_bot_error(e):
+            err(f"봇 차단 — 쿠키를 확인하세요.")
+        else:
+            err(f"검색 실패: {e}")
         return []
 
+# ── Step 2: 개별 영상 메타 (duration 확보) ────────────────────────────────────
+# extract_flat 모드에서는 duration=None 인 경우가 많으므로
+# 개별 URL 로 메타를 재조회해서 duration 을 확인한다.
 
-# ── Shorts 필터링 ─────────────────────────────────────────────────────────────
-
-def is_shorts(entry: dict) -> bool:
-    """Shorts 영상 여부 판별 (duration + url 패턴)"""
-    duration = entry.get("duration") or 0
-    url = entry.get("url", "") or entry.get("webpage_url", "")
-    vid_id = entry.get("id", "")
-
-    # duration 기반 (None 이면 일단 통과)
-    if duration and duration > MAX_DURATION:
-        return False
-
-    # Shorts URL 패턴
-    if "/shorts/" in url:
-        return True
-
-    # duration ≤ 60 이면 Shorts 가능성 높음
-    if duration and duration <= 60:
-        return True
-
-    return True  # 판단 불가 시 일단 포함 (다운로드 단계에서 재확인)
-
-
-def filter_entries(entries: list[dict], min_views: int) -> list[dict]:
-    filtered = []
-    for e in entries:
-        if not is_shorts(e):
-            dim(f"  skip (길이 초과): {e.get('title', 'N/A')[:50]}")
-            continue
-        view_count = e.get("view_count") or 0
-        if min_views > 0 and view_count < min_views:
-            dim(f"  skip (조회수 부족 {view_count:,}): {e.get('title', 'N/A')[:50]}")
-            continue
-        filtered.append(e)
-    return filtered
-
-
-# ── 단일 영상 다운로드 ────────────────────────────────────────────────────────
-
-def download_video(video_id: str, output_dir: Path, idx: int, cookie_opts: dict) -> bool:
-    """yt-dlp 로 영상 하나를 다운로드"""
+def fetch_meta(vid_id, cookie_opts):
     import yt_dlp
 
-    url = f"https://www.youtube.com/shorts/{video_id}"
-    fallback_url = f"https://www.youtube.com/watch?v={video_id}"
+    opts = {**base_opts(cookie_opts), "skip_download": True}
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(
+                f"https://www.youtube.com/watch?v={vid_id}", download=False)
+    except Exception as e:
+        if is_bot_error(e):
+            err(f"봇 차단 ({vid_id})")
+        else:
+            dim(f"  메타 실패 ({vid_id}): {e}")
+        return None
 
-    output_tmpl = str(output_dir / "%(upload_date)s_%(id)s_%(title).60s.%(ext)s")
+# ── Step 3: 다운로드 ──────────────────────────────────────────────────────────
 
-    ydl_opts = {
-        **build_base_opts(cookie_opts),
-        "outtmpl": output_tmpl,
-        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+def download_video(vid_id, out_dir, cookie_opts):
+    import yt_dlp
+
+    tmpl = str(out_dir / "%(upload_date)s_%(id)s_%(title).60s.%(ext)s")
+    opts = {
+        **base_opts(cookie_opts),
+        "outtmpl":             tmpl,
+        "format":              "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
         "merge_output_format": "mp4",
-        "match_filter": f"duration <= {MAX_DURATION}",
-        "postprocessors": [{
-            "key": "FFmpegVideoConvertor",
-            "preferedformat": "mp4",
-        }],
+        "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
     }
 
-    for url_try in [url, fallback_url]:
+    for url in [
+        f"https://www.youtube.com/shorts/{vid_id}",
+        f"https://www.youtube.com/watch?v={vid_id}",
+    ]:
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url_try])
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
             return True
         except Exception as e:
-            msg = str(e)
-            if "Sign in" in msg or "bot" in msg.lower():
-                err("  봇 감지 차단 — 쿠키 옵션을 확인하세요.")
-                break   # fallback URL 시도해도 소용없음
-            dim(f"    재시도 ({url_try}): {e}")
-            continue
+            if is_bot_error(e):
+                err("봇 차단 — 쿠키를 확인하세요.")
+                return False
+            dim(f"  재시도: {e}")
 
     return False
 
+# ── 로그 저장 ─────────────────────────────────────────────────────────────────
 
-# ── 진행 상황 로그 저장 ───────────────────────────────────────────────────────
-
-def save_log(output_dir: Path, results: list[dict]):
-    log_path = output_dir / "download_log.json"
-    with open(log_path, "w", encoding="utf-8") as f:
+def save_log(out_dir, results):
+    path = out_dir / "download_log.json"
+    with open(path, "w", encoding="utf-8") as f:
         json.dump({
             "generated_at": datetime.now().isoformat(),
-            "total": len(results),
-            "success": sum(1 for r in results if r["success"]),
-            "videos": results,
+            "total":   len(results),
+            "success": sum(1 for r in results if r.get("success")),
+            "videos":  results,
         }, f, ensure_ascii=False, indent=2)
-    ok(f"로그 저장: {log_path}")
+    ok(f"로그: {path}")
 
+# ── 메인 ──────────────────────────────────────────────────────────────────────
 
-# ── 메인 로직 ─────────────────────────────────────────────────────────────────
+def run(queries, output_dir, max_per_q, max_total, min_views,
+        dry_run, browser, cookies):
 
-def run(
-    queries: list[str],
-    output_dir: str,
-    max_per_query: int,
-    max_total: int,
-    min_views: int,
-    dry_run: bool,
-    cookies_from_browser: str | None,
-    cookies_file: str | None,
-):
     ensure_ytdlp()
-
-    cookie_opts = resolve_cookie_opts(cookies_from_browser, cookies_file)
+    cookie_opts = resolve_cookie_opts(browser, cookies)
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     info(f"저장 폴더: {out.resolve()}")
+    print()
 
-    downloaded = 0
-    seen_ids: set[str] = set()
-    results: list[dict] = []
+    total_dl = 0
+    seen_ids = set()
+    results  = []
 
     for query in queries:
-        if downloaded >= max_total:
-            warn("최대 다운로드 수 도달, 종료합니다.")
+        if total_dl >= max_total:
+            warn("최대 다운로드 수 도달.")
             break
 
-        print()
-        entries = fetch_metadata(query, max_per_query, cookie_opts)
+        entries = fetch_ids(query, max_per_q, cookie_opts)
         if not entries:
-            warn("검색 결과 없음.")
+            warn("  검색 결과 없음.")
+            print()
             continue
 
-        filtered = filter_entries(entries, min_views)
-        info(f"  → {len(entries)}개 검색 / {len(filtered)}개 필터 통과")
+        info(f"  검색 결과 {len(entries)}개")
+        count_q = 0
 
-        count_this_query = 0
-        for entry in filtered:
-            if downloaded >= max_total or count_this_query >= max_per_query:
+        for entry in entries:
+            if total_dl >= max_total or count_q >= max_per_q:
                 break
 
             vid_id = entry.get("id", "")
@@ -352,123 +285,106 @@ def run(
                 continue
             seen_ids.add(vid_id)
 
-            title = entry.get("title", "N/A")[:60]
+            # duration 확인 — extract_flat 에서는 None 인 경우가 많아 개별 재조회
             duration = entry.get("duration")
-            views = entry.get("view_count") or 0
+            title    = (entry.get("title") or vid_id)[:60]
 
-            print(f"\n  [{downloaded+1}] {C.BOLD}{title}{C.RESET}")
-            dim(f"       ID: {vid_id} | 길이: {duration}s | 조회수: {views:,}")
+            if duration is None:
+                meta = fetch_meta(vid_id, cookie_opts)
+                if not meta:
+                    results.append({"id": vid_id, "success": False, "reason": "meta_fail"})
+                    continue
+                duration = meta.get("duration") or 0
+                title    = (meta.get("title") or title)[:60]
+                views    = meta.get("view_count") or 0
+            else:
+                views = entry.get("view_count") or 0
 
-            if dry_run:
-                ok("  (dry-run) 다운로드 스킵")
-                results.append({"id": vid_id, "title": title, "success": True, "dry_run": True})
-                downloaded += 1
-                count_this_query += 1
+            # 길이 필터
+            if duration and duration > MAX_DURATION:
+                dim(f"  skip (길이 {duration}s > {MAX_DURATION}s): {title[:45]}")
                 continue
 
-            success = download_video(vid_id, out, downloaded + 1, cookie_opts)
+            # 조회수 필터
+            if min_views > 0 and views < min_views:
+                dim(f"  skip (조회수 {views:,} < {min_views:,}): {title[:45]}")
+                continue
+
+            print(f"\n  [{total_dl+1}] {C.BOLD}{title}{C.RESET}")
+            dim(f"       ID: {vid_id}  길이: {duration}s  조회수: {views:,}")
+
+            if dry_run:
+                ok("  (dry-run) 스킵")
+                results.append({"id": vid_id, "title": title, "success": True, "dry_run": True})
+                total_dl += 1; count_q += 1
+                continue
+
+            success = download_video(vid_id, out, cookie_opts)
             if success:
-                ok(f"  다운로드 완료")
-                downloaded += 1
-                count_this_query += 1
+                ok("  완료")
+                total_dl += 1; count_q += 1
             else:
-                err(f"  다운로드 실패")
+                err("  실패")
 
             results.append({
-                "id": vid_id,
-                "title": entry.get("title", ""),
-                "duration": duration,
-                "views": views,
-                "query": query,
-                "success": success,
+                "id": vid_id, "title": title,
+                "duration": duration, "views": views,
+                "query": query, "success": success,
             })
 
-            time.sleep(1.5)   # 서버 부하 방지
+            time.sleep(REQUEST_SLEEP)
 
-    print()
-    ok(f"완료: 총 {downloaded}개 영상 다운로드 → {out.resolve()}")
+        print()
+
+    ok(f"완료: {total_dl}개 다운로드 → {out.resolve()}")
     save_log(out, results)
-
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def parse_args():
-    parser = argparse.ArgumentParser(
+    p = argparse.ArgumentParser(
         description="YouTube 반려동물 숏폼 자동 다운로드",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-쿠키 인증 예시:
-  python pet_shorts_downloader.py --browser chrome
+쿠키 사용법 (봇 차단 해결):
+  --browser firefox             Firefox 쿠키 자동 추출 (가장 안정적)
+  --browser chrome              Chrome 쿠키 자동 추출 (Chrome 완전 종료 후)
+  --browser "chrome:Default"    Chrome 특정 프로필
+  --cookies ~/cookies.txt       Netscape 형식 쿠키 파일
+
+쿠키 파일 내보내기:
+  Chrome 확장: "Get cookies.txt LOCALLY"
+
+사용 예:
   python pet_shorts_downloader.py --browser firefox
-  python pet_shorts_downloader.py --browser chrome:Default          # 특정 프로필
-  python pet_shorts_downloader.py --cookies ~/cookies.txt           # 파일 직접 지정
-
-일반 사용 예시:
-  python pet_shorts_downloader.py
-  python pet_shorts_downloader.py -q "강아지 귀여운" "고양이 웃긴" -n 5
-  python pet_shorts_downloader.py -o ./videos --max-total 20 --min-views 50000
-  python pet_shorts_downloader.py --dry-run
-
-쿠키 파일 내보내기 (Chrome 확장 프로그램):
-  https://chrome.google.com/webstore/detail/get-cookiestxt-locally/...
-  또는 yt-dlp 공식 가이드:
-  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies
+  python pet_shorts_downloader.py --browser chrome -n 5 -o ./videos
+  python pet_shorts_downloader.py -q "강아지 귀여운" "고양이 웃긴" --browser firefox
+  python pet_shorts_downloader.py --dry-run --browser chrome
         """,
     )
-    parser.add_argument(
-        "-q", "--queries", nargs="+", default=DEFAULT_QUERIES,
-        metavar="QUERY",
-        help="검색어 목록 (기본값: 반려동물 관련 쿼리 5개)"
-    )
-    parser.add_argument(
-        "-o", "--output", default=DEFAULT_OUTPUT_DIR,
-        metavar="DIR",
-        help=f"저장 폴더 (기본값: {DEFAULT_OUTPUT_DIR})"
-    )
-    parser.add_argument(
-        "-n", "--max-per-query", type=int, default=MAX_PER_QUERY,
-        metavar="N",
-        help=f"검색어당 최대 다운로드 수 (기본값: {MAX_PER_QUERY})"
-    )
-    parser.add_argument(
-        "--max-total", type=int, default=MAX_TOTAL,
-        metavar="N",
-        help=f"전체 최대 다운로드 수 (기본값: {MAX_TOTAL})"
-    )
-    parser.add_argument(
-        "--min-views", type=int, default=MIN_VIEWS,
-        metavar="N",
-        help=f"최소 조회수 필터 (기본값: {MIN_VIEWS:,} / 0 = 비활성)"
-    )
-    parser.add_argument(
-        "--browser", dest="cookies_from_browser",
-        metavar="BROWSER[:PROFILE]",
-        help=(
-            "쿠키를 가져올 브라우저 (chrome|firefox|edge|safari|brave|chromium). "
-            "생략 시 자동 감지. 예: --browser chrome  또는  --browser chrome:Default"
-        )
-    )
-    parser.add_argument(
-        "--cookies", dest="cookies_file",
-        metavar="FILE",
-        help="Netscape 형식 쿠키 파일 경로. --browser 보다 우선순위 낮음."
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true",
-        help="실제 다운로드 없이 검색 결과만 확인"
-    )
-    return parser.parse_args()
+    p.add_argument("-q", "--queries", nargs="+", default=DEFAULT_QUERIES, metavar="QUERY")
+    p.add_argument("-o", "--output",  default=DEFAULT_OUTPUT_DIR, metavar="DIR")
+    p.add_argument("-n", "--max-per-query", type=int, default=MAX_PER_QUERY, metavar="N")
+    p.add_argument("--max-total",  type=int, default=MAX_TOTAL,  metavar="N")
+    p.add_argument("--min-views",  type=int, default=MIN_VIEWS,  metavar="N")
+    p.add_argument("--browser",  metavar="BROWSER[:PROFILE]",
+                   help="쿠키 소스 브라우저 (firefox|chrome|edge|safari|brave)")
+    p.add_argument("--cookies",  metavar="FILE",
+                   help="Netscape 형식 쿠키 파일 경로")
+    p.add_argument("--dry-run", action="store_true",
+                   help="다운로드 없이 검색 결과만 확인")
+    return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     run(
-        queries=args.queries,
-        output_dir=args.output,
-        max_per_query=args.max_per_query,
-        max_total=args.max_total,
-        min_views=args.min_views,
-        dry_run=args.dry_run,
-        cookies_from_browser=args.cookies_from_browser,
-        cookies_file=args.cookies_file,
+        queries    = args.queries,
+        output_dir = args.output,
+        max_per_q  = args.max_per_query,
+        max_total  = args.max_total,
+        min_views  = args.min_views,
+        dry_run    = args.dry_run,
+        browser    = args.browser,
+        cookies    = args.cookies,
     )
