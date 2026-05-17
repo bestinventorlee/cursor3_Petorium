@@ -95,6 +95,43 @@ function apiPrefix(cfg) {
   return `${cfg.baseUrl.replace(/\/$/, "")}${bp}`;
 }
 
+/** 응답 본문 앞쪽 JSON만 파싱 (뒤에 HTML이 붙는 경우 대비) */
+function parseJsonBody(text) {
+  const trimmed = String(text).trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    /* fall through */
+  }
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (lastBrace > 0) {
+    try {
+      return JSON.parse(trimmed.slice(0, lastBrace + 1));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** API가 HTML(404 페이지)로 응답하면 basePath 불일치 안내 */
+function formatApiError(label, status, body, prefix) {
+  const isHtml =
+    typeof body === "string" &&
+    (body.includes("<!DOCTYPE") || body.includes("<html"));
+  if (status === 404 && isHtml) {
+    const hint =
+      body.includes("/petorium/") && !prefix.includes("/petorium")
+        ? '\n  → publicBasePath 를 "/petorium" 로 바꿔 보세요. (npm start / 프로덕션 빌드 기본값)'
+        : body.includes("/petorium/") === false && prefix.includes("/petorium")
+          ? '\n  → publicBasePath 를 "" 로 바꿔 보세요. (npm run dev 로컬 기본값)'
+          : '\n  → baseUrl·publicBasePath 가 브라우저 접속 URL과 같은지 확인하세요.';
+    return `${label} ${status}: HTML 페이지가 반환됨 (API 경로 불일치)${hint}`;
+  }
+  return `${label} ${status}: ${String(body).slice(0, 400)}`;
+}
+
 /**
  * @param {string} prefix
  * @param {{ cookie: Map<string,string>, verbose: boolean }} opts
@@ -171,6 +208,21 @@ async function nextAuthCredentialsSignIn(prefix, email, password, callbackUrl, o
   }
 }
 
+/** 로그인 후 세션 쿠키가 유효한지 확인 */
+async function verifySession(prefix, jar) {
+  const r = await fetch(`${prefix}/api/auth/session`, {
+    headers: { Accept: "application/json", Cookie: cookieHeader(jar) },
+  });
+  const text = await r.text();
+  const data = parseJsonBody(text);
+  if (!r.ok || !data?.user) {
+    throw new Error(
+      `세션 확인 실패 (${r.status}). 로그인 쿠키가 업로드 API에 전달되지 않을 수 있습니다.`
+    );
+  }
+  return data.user;
+}
+
 async function loadVideoBytes(item, configDir) {
   if (item.file) {
     const p = resolve(configDir, item.file);
@@ -230,6 +282,53 @@ async function pexelsVideoSearch(apiKey, query, page, perPage) {
   return JSON.parse(text);
 }
 
+async function pexelsVideoPopular(apiKey, page, perPage) {
+  const u = new URL("https://api.pexels.com/videos/popular");
+  u.searchParams.set("per_page", String(perPage));
+  u.searchParams.set("page", String(page));
+  const r = await fetch(u, {
+    headers: { Authorization: apiKey },
+  });
+  const text = await r.text();
+  if (!r.ok) {
+    throw new Error(`Pexels popular 실패 ${r.status}: ${text.slice(0, 400)}`);
+  }
+  return JSON.parse(text);
+}
+
+/** Fisher–Yates */
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * @param {object} video
+ * @param {string} label
+ * @param {Set<number>} seen
+ * @param {number} minDur
+ * @param {number} maxDur
+ */
+function tryAddPexelsVideo(video, label, seen, minDur, maxDur) {
+  const id = video.id;
+  if (seen.has(id)) return null;
+  const dur = Number(video.duration);
+  if (dur < minDur || dur > maxDur) return null;
+  const file = pickPexelsMp4File(video.video_files);
+  if (!file?.link) return null;
+  seen.add(id);
+  const photoUrl = video.url || `https://www.pexels.com/video/video-${id}/`;
+  const userName = video.user?.name || "Pexels";
+  return {
+    url: file.link,
+    title: `Pet short · ${label} · ${id}`.slice(0, 100),
+    description: `MVP 시드 · Pexels · ${userName} · ${photoUrl}`.slice(0, 500),
+  };
+}
+
 /**
  * @param {object} cfg 전체 설정
  * @param {number} totalNeeded userCount * videosPerUser
@@ -273,21 +372,50 @@ async function buildQueueFromPexels(cfg, totalNeeded, args) {
     am.maxPagesPerQuery != null ? Number(am.maxPagesPerQuery) : 25;
   const apiDelay =
     am.betweenApiDelayMs != null ? Number(am.betweenApiDelayMs) : 1200;
-  const extra = Math.min(30, Math.ceil(totalNeeded * 0.25));
+  const extra = Math.min(50, Math.ceil(totalNeeded * 0.3));
   const target = totalNeeded + extra;
+  const usePopular = am.usePopularFeed !== false;
+  const shuffleQueue = am.shuffleQueue !== false;
 
   /** @type {Array<{ url: string, title: string, description: string }>} */
   const queue = [];
   const seen = new Set();
   /** @type {Record<string, number>} */
   const pageByQuery = Object.fromEntries(queries.map((q) => [q, 1]));
+  let popularPage = 1;
+  const maxPopularPages =
+    am.maxPopularPages != null ? Number(am.maxPopularPages) : maxPages;
 
   let firstFetch = true;
   let iterations = 0;
-  const maxIterations = maxPages * queries.length + 100;
+  const maxIterations =
+    maxPages * queries.length + maxPopularPages + 100;
 
   while (queue.length < target && iterations < maxIterations) {
     iterations++;
+
+    if (usePopular && popularPage <= maxPopularPages) {
+      if (!firstFetch && apiDelay > 0) await sleep(apiDelay);
+      firstFetch = false;
+      try {
+        const data = await pexelsVideoPopular(apiKey, popularPage, perPage);
+        popularPage++;
+        for (const video of data.videos || []) {
+          if (queue.length >= target) break;
+          const item = tryAddPexelsVideo(video, "popular", seen, minDur, maxDur);
+          if (item) queue.push(item);
+        }
+        if (args.verbose) {
+          console.log(
+            `[verbose] Pexels popular p${popularPage - 1} → 큐 ${queue.length}/${target}`
+          );
+        }
+      } catch (e) {
+        console.error(`Pexels popular 오류:`, e.message);
+        popularPage++;
+      }
+    }
+
     for (const query of queries) {
       if (queue.length >= target) break;
       const page = pageByQuery[query];
@@ -308,26 +436,10 @@ async function buildQueueFromPexels(cfg, totalNeeded, args) {
       const videos = data.videos || [];
       pageByQuery[query] = page + 1;
 
-      if (videos.length === 0) continue;
-
       for (const video of videos) {
         if (queue.length >= target) break;
-        const id = video.id;
-        if (seen.has(id)) continue;
-        const dur = Number(video.duration);
-        if (dur < minDur || dur > maxDur) continue;
-        const file = pickPexelsMp4File(video.video_files);
-        if (!file?.link) continue;
-        seen.add(id);
-        const photoUrl =
-          video.url || `https://www.pexels.com/video/video-${id}/`;
-        const userName = video.user?.name || "Pexels";
-        queue.push({
-          url: file.link,
-          title: `Pet short · ${query} · ${id}`.slice(0, 100),
-          description:
-            `MVP 시드 · Pexels · ${userName} · ${photoUrl}`.slice(0, 500),
-        });
+        const item = tryAddPexelsVideo(video, query, seen, minDur, maxDur);
+        if (item) queue.push(item);
       }
 
       if (args.verbose) {
@@ -337,8 +449,12 @@ async function buildQueueFromPexels(cfg, totalNeeded, args) {
       }
     }
 
-    if (queries.every((q) => pageByQuery[q] > maxPages)) break;
+    const searchDone = queries.every((q) => pageByQuery[q] > maxPages);
+    const popularDone = !usePopular || popularPage > maxPopularPages;
+    if (searchDone && popularDone) break;
   }
+
+  if (shuffleQueue) shuffleInPlace(queue);
 
   if (queue.length < totalNeeded) {
     console.warn(
@@ -388,10 +504,17 @@ async function main() {
   items = items.filter((x) => x && (x.file || x.url));
 
   const totalSlots = userCount * videosPerUser;
+  const uniquePerUser = cfg.uniqueVideosPerUser !== false;
   const usePexels = cfg.autoMedia?.provider === "pexels";
 
   if (usePexels) {
     items = await buildQueueFromPexels(cfg, totalSlots, args);
+  }
+
+  if (uniquePerUser && items.length < totalSlots) {
+    console.warn(
+      `경고: 고유 클립 ${items.length}개 < 필요 ${totalSlots}개 — 일부 유저는 영상이 부족할 수 있습니다. queries·maxPagesPerQuery 를 늘리세요.`
+    );
   }
 
   if (items.length === 0) {
@@ -406,7 +529,8 @@ async function main() {
   console.log(`API base: ${prefix}`);
   console.log(
     `유저 ${userCount}명 × 영상 ${videosPerUser}개 · 소스 큐 ${items.length}개` +
-      (usePexels ? " (Pexels 자동 수집)" : " (수동 items)")
+      (usePexels ? " (Pexels 자동 수집)" : " (수동 items)") +
+      (uniquePerUser ? " · 유저별 서로 다른 클립" : " · 클립 순환(중복 가능)")
   );
   if (args.dryRun) {
     console.log("--dry-run: 종료");
@@ -445,7 +569,7 @@ async function main() {
     } else if (regRes.status === 400 && skipExisting && regJson?.error?.includes("이미")) {
       console.log(`가입 스킵(이미 있음): ${email}`);
     } else if (!regRes.ok) {
-      console.error(`가입 실패 ${regRes.status}: ${regText.slice(0, 400)}`);
+      console.error(formatApiError("가입 실패", regRes.status, regText, prefix));
       continue;
     }
 
@@ -454,16 +578,33 @@ async function main() {
         cookie: cookieJar,
         verbose: args.verbose,
       });
+      const sessionUser = await verifySession(prefix, cookieJar);
+      console.log(`로그인 OK: ${sessionUser.email || email}`);
     } catch (e) {
       console.error(`로그인 실패 ${email}:`, e.message);
       continue;
     }
 
-    console.log(`업로드 시작: ${username} (${videosPerUser}개)`);
+    const userOffset = (i - 1) * videosPerUser;
+    const userItems = uniquePerUser
+      ? items.slice(userOffset, userOffset + videosPerUser)
+      : null;
+
+    console.log(
+      `업로드 시작: ${username} (${videosPerUser}개` +
+        (uniquePerUser
+          ? `, 클립 #${userOffset + 1}~${userOffset + userItems.length}`
+          : "") +
+        ")"
+    );
 
     for (let v = 0; v < videosPerUser; v++) {
       if (v > 0 && upDelay > 0) await sleep(upDelay);
-      const item = items[v % items.length];
+      const item = uniquePerUser ? userItems[v] : items[v % items.length];
+      if (!item) {
+        console.error(`  [${v + 1}] 할당된 클립 없음 (큐 부족)`);
+        continue;
+      }
       let buf;
       let fileName;
       try {
@@ -498,17 +639,37 @@ async function main() {
         body: form,
       });
       const upText = await upRes.text();
-      if (args.verbose) console.log("[verbose] upload", upRes.status, upText.slice(0, 200));
+      const upJson = parseJsonBody(upText);
+      if (args.verbose) {
+        console.log(
+          "[verbose] upload",
+          upRes.status,
+          upRes.headers.get("content-type"),
+          (upJson?.videoId || upText).toString().slice(0, 120)
+        );
+      }
 
       if (!upRes.ok) {
-        console.error(`  [${v + 1}] 업로드 실패 ${upRes.status}: ${upText.slice(0, 400)}`);
+        console.error(
+          formatApiError(`  [${v + 1}] 업로드 실패`, upRes.status, upText, prefix)
+        );
         continue;
       }
-      try {
-        const uj = JSON.parse(upText);
-        console.log(`  [${v + 1}] OK videoId=${uj.videoId || uj.video?.id || "?"}`);
-      } catch {
-        console.log(`  [${v + 1}] OK`);
+
+      const vid = upJson?.videoId || upJson?.video?.id;
+      if (vid && /^[a-z0-9]+$/i.test(String(vid))) {
+        console.log(`  [${v + 1}] OK videoId=${vid}`);
+      } else if (upText.includes("<!DOCTYPE") || upText.includes("<html")) {
+        console.error(
+          `  [${v + 1}] HTTP ${upRes.status} 이지만 HTML 응답 — 업로드 실패로 간주`
+        );
+        continue;
+      } else if (upJson) {
+        console.log(`  [${v + 1}] OK (videoId 없음, processing 중일 수 있음)`);
+      } else {
+        console.error(
+          `  [${v + 1}] 비JSON 응답 (${upRes.status}): ${upText.slice(0, 200)}`
+        );
       }
     }
   }

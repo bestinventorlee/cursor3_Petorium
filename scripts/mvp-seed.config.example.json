@@ -1,9 +1,10 @@
 {
-  "$comment": "자동 수집: autoMedia.provider 가 pexels 이면 Pexels API로 검색·다운로드(15~60초만) 후 업로드. 키: https://www.pexels.com/api/ · 라이선스: https://www.pexels.com/license/",
+  "$comment": "Pexels 자동 수집. uniqueVideosPerUser=true면 10명이 서로 다른 200개 클립 사용(중복 대폭 감소). YouTube 자동 다운로드는 지원하지 않습니다.",
   "baseUrl": "http://localhost:3000",
   "publicBasePath": "",
   "userCount": 10,
   "videosPerUser": 20,
+  "uniqueVideosPerUser": true,
   "password": "MvpSeedChangeMe!1",
   "emailLocalPartPrefix": "petmvp",
   "emailDomain": "mvp-seed.test",
@@ -14,11 +15,25 @@
   "autoMedia": {
     "provider": "pexels",
     "apiKeyEnv": "PEXELS_API_KEY",
-    "queries": ["cat", "dog", "kitten", "puppy", "pet"],
+    "usePopularFeed": true,
+    "shuffleQueue": true,
+    "queries": [
+      "cat",
+      "dog",
+      "kitten",
+      "puppy",
+      "hamster",
+      "rabbit",
+      "bird pet",
+      "fish aquarium",
+      "guinea pig",
+      "pet playing"
+    ],
     "minDuration": 15,
     "maxDuration": 60,
     "perQueryPageSize": 15,
-    "maxPagesPerQuery": 30,
+    "maxPagesPerQuery": 40,
+    "maxPopularPages": 40,
     "betweenApiDelayMs": 1200
   },
   "items": []
