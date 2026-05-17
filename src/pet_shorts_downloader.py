@@ -40,6 +40,9 @@ MIN_VIEWS          = 0       # 최소 조회수 (0 = 필터 없음)
 MAX_PER_QUERY      = 10      # 검색어당 최대 다운로드 수
 MAX_TOTAL          = 50      # 전체 최대 다운로드 수
 REQUEST_SLEEP      = 2.0     # 영상 간 딜레이(초)
+CHECK_RATIO        = True    # 9:16 세로 비율 필터 (True = 활성)
+RATIO_TOLERANCE    = 0.15    # 비율 허용 오차 (±15%)
+REQUEST_SLEEP      = 2.0     # 영상 간 딜레이(초)
 
 BROWSER_PRIORITY = ["firefox", "chrome", "edge", "chromium", "brave", "safari", "opera"]
 
@@ -204,6 +207,63 @@ def fetch_meta(vid_id, cookie_opts):
             dim(f"  메타 실패 ({vid_id}): {e}")
         return None
 
+# ── 9:16 비율 체크 ───────────────────────────────────────────────────────────────
+
+def is_vertical_video(meta) -> bool:
+    """
+    메타데이터 또는 포맷 목록에서 9:16 세로 비율 여부 판별.
+    - meta의 width/height 직접 확인
+    - 없으면 formats 리스트에서 가장 높은 해상도 포맷의 width/height 확인
+    - 둘 다 없으면 True 반환 (통과시킴 — 다운로드 후 ffprobe로 재확인)
+    """
+    if not CHECK_RATIO:
+        return True
+
+    w = meta.get("width")
+    h = meta.get("height")
+
+    # formats 에서 찾기
+    if not (w and h):
+        formats = meta.get("formats") or []
+        for fmt in reversed(formats):  # 높은 해상도 우선
+            fw = fmt.get("width")
+            fh = fmt.get("height")
+            if fw and fh and fw > 0 and fh > 0:
+                w, h = fw, fh
+                break
+
+    if not (w and h):
+        return True  # 판단 불가 → 통과
+
+    ratio = w / h  # 9:16 = 0.5625
+    target = 9 / 16
+    return abs(ratio - target) <= RATIO_TOLERANCE
+
+
+def check_ratio_ffprobe(filepath: str) -> bool:
+    """다운로드된 파일을 ffprobe로 실제 비율 검증"""
+    if not CHECK_RATIO:
+        return True
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height",
+             "-of", "csv=p=0", filepath],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return True  # ffprobe 없으면 통과
+        parts = result.stdout.strip().split(",")
+        if len(parts) < 2:
+            return True
+        w, h = int(parts[0]), int(parts[1])
+        ratio = w / h
+        target = 9 / 16
+        return abs(ratio - target) <= RATIO_TOLERANCE
+    except Exception:
+        return True  # 오류 시 통과
+
+
 # ── Step 3: 다운로드 ──────────────────────────────────────────────────────────
 
 # 포맷 우선순위: 화질 좋은 것부터 → 단일 스트림 → 뭐든 최선
@@ -320,6 +380,7 @@ def run(queries, output_dir, max_per_q, max_total, min_views,
             duration = entry.get("duration")
             title    = (entry.get("title") or vid_id)[:60]
 
+            meta = None
             if duration is None:
                 meta = fetch_meta(vid_id, cookie_opts)
                 if not meta:
@@ -341,6 +402,16 @@ def run(queries, output_dir, max_per_q, max_total, min_views,
                 dim(f"  skip (조회수 {views:,} < {min_views:,}): {title[:45]}")
                 continue
 
+            # 9:16 비율 필터 (메타 없으면 재조회)
+            if CHECK_RATIO:
+                if meta is None:
+                    meta = fetch_meta(vid_id, cookie_opts)
+                if meta and not is_vertical_video(meta):
+                    w = meta.get("width") or "?"
+                    h = meta.get("height") or "?"
+                    dim(f"  skip (비율 {w}x{h} — 세로 아님): {title[:45]}")
+                    continue
+
             print(f"\n  [{total_dl+1}] {C.BOLD}{title}{C.RESET}")
             dim(f"       ID: {vid_id}  길이: {duration}s  조회수: {views:,}")
 
@@ -352,8 +423,18 @@ def run(queries, output_dir, max_per_q, max_total, min_views,
 
             success = download_video(vid_id, out, cookie_opts)
             if success:
-                ok("  완료")
-                total_dl += 1; count_q += 1
+                # ffprobe로 실제 비율 재검증
+                import glob
+                downloaded_files = sorted(glob.glob(str(out / f"*{vid_id}*")))
+                if downloaded_files and CHECK_RATIO:
+                    fpath = downloaded_files[-1]
+                    if not check_ratio_ffprobe(fpath):
+                        warn(f"  비율 불일치 — 삭제: {Path(fpath).name}")
+                        Path(fpath).unlink(missing_ok=True)
+                        success = False
+                if success:
+                    ok("  완료")
+                    total_dl += 1; count_q += 1
             else:
                 err("  실패")
 
