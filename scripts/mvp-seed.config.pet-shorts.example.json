@@ -3,7 +3,7 @@
   "baseUrl": "http://localhost:3000",
   "publicBasePath": "/petorium",
   "userCount": 10,
-  "videosPerUser": 20,
+  "videosPerUser": 30,
   "uniqueVideosPerUser": true,
   "password": "MvpSeedChangeMe!1",
   "emailLocalPartPrefix": "petmvp",

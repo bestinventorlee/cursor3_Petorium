@@ -334,12 +334,10 @@ async function quarantineInvalidFile(filePath, quarantineDir, reason) {
 }
 
 /**
- * localMedia.directory 에 있는 영상을 큐로 만듦 (유저별 고유 할당용)
- * @param {object} cfg
- * @param {number} totalNeeded
- * @param {{ dryRun: boolean, verbose: boolean }} args
+ * localMedia.directory 에서 영상 목록 수집 (maxCount 까지)
+ * deleteAfterUpload 시 유저마다 다시 호출해 남은 파일만 가져옴
  */
-async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
+async function collectLocalMediaItems(cfg, args, maxCount = Infinity) {
   const lm = cfg.localMedia || {};
   const dirRel = lm.directory || "src/pet_shorts";
   const dir = resolve(process.cwd(), dirRel);
@@ -406,6 +404,8 @@ async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
   }
 
   for (const { name, absolutePath } of candidates) {
+    if (queue.length >= maxCount) break;
+
     if (filterDuration && hasFfprobe) {
       const dur = await probeDurationSeconds(absolutePath);
       if (dur != null) {
@@ -442,24 +442,33 @@ async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
     });
   }
 
+  return queue;
+}
+
+/** 시작 시 폴더 상태만 점검 (로컬 모드) */
+async function initLocalMediaRun(cfg, totalNeeded, args) {
+  const lm = cfg.localMedia || {};
+  const dir = resolve(process.cwd(), lm.directory || "src/pet_shorts");
+  const deleteAfter = lm.deleteAfterUpload !== false;
+  const queue = await collectLocalMediaItems(cfg, args, Infinity);
+
   console.log(
-    `로컬 폴더: ${dir} · 업로드 대상 ${queue.length}개` +
-      (skippedDuration
-        ? ` · 길이 부적합 ${skippedDuration}개 → ${quarantineDir}`
-        : "") +
-      (filterDuration && hasFfprobe
-        ? ` · 허용 길이 ${minDur}~${maxDur}초`
-        : "") +
-      (deleteAfter ? " · 성공 시 삭제" : "")
+    `로컬 폴더: ${dir} · 현재 ${queue.length}개` +
+      (deleteAfter ? " · 유저마다 폴더 재스캔 후 최대 videosPerUser 개" : "") +
+      (deleteAfter ? " · 업로드 성공 시 삭제" : "")
   );
 
   if (queue.length === 0) {
-    console.error(
-      filterDuration
-        ? `업로드 가능한 영상이 없습니다 (${minDur}~${maxDur}초). _rejected 폴더를 확인하세요.`
-        : "업로드 가능한 영상이 없습니다."
-    );
+    console.error(`업로드할 영상이 없습니다: ${dir}`);
     process.exit(1);
+  }
+
+  if (queue.length < totalNeeded) {
+    const u = Number(cfg.userCount) || 10;
+    const v = Number(cfg.videosPerUser) || 30;
+    console.warn(
+      `경고: 폴더 ${queue.length}개 < 목표 ${totalNeeded}개 (${u}명×${v}개). 있는 만큼만 올립니다.`
+    );
   }
 
   if (args.dryRun) {
@@ -467,13 +476,7 @@ async function buildQueueFromLocalDirectory(cfg, totalNeeded, args) {
     queue.slice(0, 5).forEach((q, i) => console.log(`  ${i + 1}. ${basename(q.absolutePath)}`));
   }
 
-  if (queue.length < totalNeeded) {
-    console.warn(
-      `경고: 폴더에 ${queue.length}개, 필요 ${totalNeeded}개 — 있는 만큼만 유저에 나눠 올립니다.`
-    );
-  }
-
-  return queue;
+  return queue.length;
 }
 
 /**
@@ -714,7 +717,7 @@ async function main() {
   const prefix = apiPrefix(cfg);
 
   const userCount = Number(cfg.userCount) || 10;
-  const videosPerUser = Number(cfg.videosPerUser) || 20;
+  const videosPerUser = Number(cfg.videosPerUser) || 30;
   const password = String(cfg.password || "");
   if (password.length < 6) {
     console.error("password 는 6자 이상이어야 합니다 (register 스키마).");
@@ -739,19 +742,24 @@ async function main() {
   const usePexels = !useLocal && cfg.autoMedia?.provider === "pexels";
 
   if (useLocal) {
-    items = await buildQueueFromLocalDirectory(cfg, totalSlots, args);
+    await initLocalMediaRun(cfg, totalSlots, args);
+    if (args.dryRun) {
+      console.log("--dry-run: 종료");
+      return;
+    }
+    items = [];
   } else if (usePexels) {
     items = await buildQueueFromPexels(cfg, totalSlots, args);
   }
 
-  if (uniquePerUser && items.length < totalSlots) {
+  if (!useLocal && uniquePerUser && items.length < totalSlots) {
     console.warn(
       `경고: 고유 클립 ${items.length}개 < 필요 ${totalSlots}개 — 일부 유저는 영상이 부족할 수 있습니다.` +
-        (usePexels ? " queries·maxPagesPerQuery 를 늘리세요." : " pet_shorts 에 영상을 더 넣으세요.")
+        (usePexels ? " queries·maxPagesPerQuery 를 늘리세요." : "")
     );
   }
 
-  if (items.length === 0) {
+  if (!useLocal && items.length === 0) {
     console.error(
       "업로드할 소스가 없습니다. localMedia.directory, autoMedia(Pexels), 또는 items 에 file/url 을 설정하세요."
     );
@@ -768,12 +776,12 @@ async function main() {
         : usePexels
           ? " (Pexels 자동 수집)"
           : " (수동 items)") +
-      (uniquePerUser ? " · 유저별 서로 다른 클립" : " · 클립 순환(중복 가능)")
+      (useLocal
+        ? " · 유저마다 폴더에서 N개씩"
+        : uniquePerUser
+          ? " · 유저별 서로 다른 클립"
+          : " · 클립 순환(중복 가능)")
   );
-  if (args.dryRun) {
-    console.log("--dry-run: 종료");
-    return;
-  }
 
   for (let i = 1; i <= userCount; i++) {
     const email = `${emailPrefix}${String(i).padStart(2, "0")}@${emailDomain}`;
@@ -823,22 +831,35 @@ async function main() {
       continue;
     }
 
-    const userOffset = (i - 1) * videosPerUser;
-    const userItems = uniquePerUser
-      ? items.slice(userOffset, userOffset + videosPerUser)
-      : null;
+    let userItems;
+    if (useLocal) {
+      userItems = await collectLocalMediaItems(cfg, args, videosPerUser);
+      if (userItems.length === 0) {
+        console.warn(`${username}: 폴더에 남은 영상 없음 — 이후 유저 중단`);
+        break;
+      }
+    } else if (uniquePerUser) {
+      const userOffset = (i - 1) * videosPerUser;
+      userItems = items.slice(userOffset, userOffset + videosPerUser);
+    } else {
+      userItems = null;
+    }
+
+    const uploadCount = useLocal ? userItems.length : videosPerUser;
 
     console.log(
-      `업로드 시작: ${username} (${videosPerUser}개` +
-        (uniquePerUser
-          ? `, 클립 #${userOffset + 1}~${userOffset + userItems.length}`
-          : "") +
+      `업로드 시작: ${username} (${uploadCount}개` +
+        (useLocal ? ", 폴더 재스캔" : "") +
         ")"
     );
 
-    for (let v = 0; v < videosPerUser; v++) {
+    for (let v = 0; v < uploadCount; v++) {
       if (v > 0 && upDelay > 0) await sleep(upDelay);
-      const item = uniquePerUser ? userItems[v] : items[v % items.length];
+      const item = useLocal
+        ? userItems[v]
+        : uniquePerUser
+          ? userItems[v]
+          : items[v % items.length];
       if (!item) {
         console.error(`  [${v + 1}] 할당된 클립 없음 (큐 부족)`);
         continue;
