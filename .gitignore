@@ -44,3 +44,9 @@ next-env.d.ts
 # MVP 시드 로컬 설정 (비밀번호·내부 URL 포함 가능 — 예시는 scripts/mvp-seed.config.example.json)
 /scripts/mvp-seed.config.json
 
+# 브라우저 쿠키보내기 (세션·Canva 등 비밀 포함 — 절대 커밋 금지)
+src/cookies.txt
+cookies.txt
+**/cookies.txt
+cookies.txt.local-backup
+
